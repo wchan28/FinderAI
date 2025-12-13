@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Dict
 
 
@@ -30,12 +31,16 @@ def chunk_text(
     if not text.strip():
         return []
 
+    file_name = Path(file_path).name
+    parent_folder = Path(file_path).parent.name
+    file_context = f"File: {file_name} (in {parent_folder} folder)\n\n"
+
     words = text.split()
     total_words = len(words)
 
     if total_words <= chunk_size:
         return [{
-            "text": text,
+            "text": file_context + text,
             "file_path": file_path,
             "slide_number": location_number,
             "chunk_index": 0
@@ -52,7 +57,7 @@ def chunk_text(
         chunk_text_content = " ".join(chunk_words)
 
         chunks.append({
-            "text": chunk_text_content,
+            "text": file_context + chunk_text_content,
             "file_path": file_path,
             "slide_number": location_number,
             "chunk_index": chunk_index

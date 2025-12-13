@@ -6,15 +6,15 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.db.vector_store import VectorStore
-from backend.chat.rag_handler import get_answer
-from backend.search.retriever import search_documents
+from backend.chat.rag_handler import get_answer, is_file_listing_query
+from backend.search.retriever import search_documents, search_files_by_name
 
 router = APIRouter()
 
 
 class ChatRequest(BaseModel):
     message: str
-    n_context_results: int = 5
+    n_context_results: int = 10
 
 
 async def generate_chat_stream(message: str, n_context_results: int):
@@ -26,16 +26,29 @@ async def generate_chat_stream(message: str, n_context_results: int):
         yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
         return
 
-    results = search_documents(message, vector_store, n_results=n_context_results)
-
     sources = []
+
+    if is_file_listing_query(message):
+        file_matches = search_files_by_name(message, vector_store)
+        for m in file_matches:
+            sources.append({
+                "file_name": m["file_name"],
+                "file_path": m["file_path"],
+                "slide_number": 0,
+                "relevance_score": 1.0
+            })
+
+    results = search_documents(message, vector_store, n_results=n_context_results)
+    seen_files = {s["file_path"] for s in sources}
     for r in results:
-        sources.append({
-            "file_name": r["file_name"],
-            "file_path": r["file_path"],
-            "slide_number": r["slide_number"],
-            "relevance_score": r["relevance_score"]
-        })
+        if r["file_path"] not in seen_files:
+            sources.append({
+                "file_name": r["file_name"],
+                "file_path": r["file_path"],
+                "slide_number": r["slide_number"],
+                "relevance_score": r["relevance_score"]
+            })
+            seen_files.add(r["file_path"])
 
     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
 

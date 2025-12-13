@@ -1,6 +1,7 @@
 import ReactMarkdown from 'react-markdown'
 import { FileText, User } from 'lucide-react'
 import type { Message } from '../../hooks/useChat'
+import { ThinkingIndicator } from './ThinkingIndicator'
 
 interface MessageBubbleProps {
   message: Message
@@ -8,6 +9,7 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  const showThinkingIndicator = message.isStreaming && !message.content && message.status
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -29,13 +31,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         }`}>
           {isUser ? (
             <p className="whitespace-pre-wrap">{message.content}</p>
+          ) : showThinkingIndicator ? (
+            <ThinkingIndicator status={message.status ?? null} />
           ) : (
-            <div className="prose prose-sm max-w-none">
+            <div className="prose prose-sm max-w-none prose-ul:list-disc prose-ul:pl-4 prose-li:my-0.5 prose-p:my-1 prose-strong:font-semibold">
               <ReactMarkdown>{message.content || '...'}</ReactMarkdown>
             </div>
           )}
 
-          {message.isStreaming && (
+          {message.isStreaming && message.content && (
             <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
           )}
         </div>

@@ -1,19 +1,35 @@
 from __future__ import annotations
 
+import re
 from typing import Optional, List, Dict, Generator
 
 import ollama
 
 from backend.db.vector_store import VectorStore
-from backend.search.retriever import search_documents, get_context_for_query
+from backend.search.retriever import search_documents, get_context_for_query, search_files_by_name
 
 
 LLM_MODEL = "llama3.2:3b"
 
+FILE_LISTING_PATTERNS = [
+    r'\b(list|show|give|find|get)\b.*\bfiles?\b',
+    r'\bfiles?\b.*\b(named?|called|containing|with)\b',
+    r'\bwhat\b.*\bfiles?\b',
+    r'\bwhich\b.*\bfiles?\b',
+    r'\ball\b.*\bfiles?\b',
+]
+
+
+def is_file_listing_query(query: str) -> bool:
+    """Check if query is asking to list files by name."""
+    query_lower = query.lower()
+    return any(re.search(pattern, query_lower) for pattern in FILE_LISTING_PATTERNS)
+
 RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on the user's local files.
 You have access to document excerpts from the user's files. Use ONLY the information provided in the context to answer questions.
 Always cite which file(s) your answer comes from.
-If the information is not in the provided documents, clearly say so - do not make up information."""
+If the information is not in the provided documents, clearly say so - do not make up information.
+Keep responses concise and well-formatted. Use markdown for readability."""
 
 RAG_USER_PROMPT_TEMPLATE = """Based on the following document excerpts from my files:
 
@@ -24,6 +40,24 @@ RAG_USER_PROMPT_TEMPLATE = """Based on the following document excerpts from my f
 Please answer this question: {query}
 
 Remember to cite the source file(s) in your answer."""
+
+FILE_LISTING_PROMPT_TEMPLATE = """The user asked for files matching: {query}
+
+I found {count} files matching your search:
+
+{file_list}
+
+{additional_context}"""
+
+
+def _format_file_listing_response(file_matches: List[Dict], query: str) -> str:
+    """Format a clean response for file listing queries."""
+    if not file_matches:
+        return "No files found matching your search."
+
+    file_list = "\n".join(f"- **{m['file_name']}**" for m in file_matches)
+
+    return f"Found **{len(file_matches)} files** matching your search:\n\n{file_list}"
 
 
 def get_answer(
@@ -46,6 +80,16 @@ def get_answer(
     """
     if vector_store is None:
         vector_store = VectorStore()
+
+    if is_file_listing_query(query):
+        file_matches = search_files_by_name(query, vector_store)
+
+        if file_matches:
+            response = _format_file_listing_response(file_matches, query)
+            if stream:
+                return iter([response])
+            else:
+                return response
 
     context = get_context_for_query(query, vector_store, n_context_results)
 

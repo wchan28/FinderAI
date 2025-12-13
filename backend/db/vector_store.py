@@ -112,3 +112,32 @@ class VectorStore:
     def count(self) -> int:
         """Return the total number of chunks in the collection."""
         return self.collection.count()
+
+    def search_by_text(self, search_text: str, limit: int = 5) -> List[Dict]:
+        """
+        Search for chunks containing specific text.
+
+        Args:
+            search_text: Text to search for in document content
+            limit: Maximum number of results to return
+
+        Returns:
+            List of matching chunks with text and metadata
+        """
+        results = self.collection.get(
+            where_document={"$contains": search_text},
+            include=["documents", "metadatas"],
+            limit=limit
+        )
+
+        search_results = []
+        if results["ids"]:
+            for i, doc_id in enumerate(results["ids"]):
+                search_results.append({
+                    "id": doc_id,
+                    "text": results["documents"][i],
+                    "metadata": results["metadatas"][i],
+                    "distance": 0.0
+                })
+
+        return search_results
