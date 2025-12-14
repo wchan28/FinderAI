@@ -11,7 +11,7 @@ from backend.extractors.pptx_extractor import extract_text_from_pptx
 from backend.extractors.pdf_extractor import extract_text_from_pdf
 from backend.extractors.docx_extractor import extract_text_from_docx
 from backend.extractors.xlsx_extractor import extract_text_from_xlsx
-from backend.indexer.chunker import chunk_document
+from backend.indexer.chunker import chunk_document, get_chunk_params
 from backend.indexer.embedder import generate_embeddings
 from backend.db.vector_store import VectorStore
 from backend.db.metadata_store import MetadataStore, compute_file_hash
@@ -103,7 +103,8 @@ def index_file(
     if progress_callback:
         progress_callback(f"  Found {len(content)} {unit_name} with text (extract: {result['extract_time']:.1f}s)")
 
-    chunks = chunk_document(content, file_path)
+    chunk_size, chunk_overlap = get_chunk_params(file_path)
+    chunks = chunk_document(content, file_path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
     if not chunks:
         result["total_time"] = time.time() - start_total
@@ -218,7 +219,8 @@ def _process_single_file(
             result["total_time"] = time.time() - start_total
             return result
 
-        chunks = chunk_document(content, file_path)
+        chunk_size, chunk_overlap = get_chunk_params(file_path)
+        chunks = chunk_document(content, file_path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
         if not chunks:
             result["total_time"] = time.time() - start_total
@@ -227,6 +229,7 @@ def _process_single_file(
         if len(chunks) > max_chunks_per_file:
             result["skipped"] = True
             result["skip_reason"] = f"too many chunks: {len(chunks)} > {max_chunks_per_file}"
+            result["chunks_would_be"] = len(chunks)
             result["total_time"] = time.time() - start_total
             return result
 
@@ -293,7 +296,8 @@ def index_folder(
         "total_time": 0.0,
         "total_embed_time": 0.0,
         "file_times": [],
-        "errors": []
+        "errors": [],
+        "skipped_files": []
     }
 
     folder_start = time.time()
@@ -333,6 +337,12 @@ def index_folder(
                     "skipped": True,
                     "reason": result["skip_reason"]
                 })
+                if result.get("chunks_would_be"):
+                    stats["skipped_files"].append({
+                        "file_name": result["file_name"],
+                        "reason": result["skip_reason"],
+                        "chunks_would_be": result["chunks_would_be"]
+                    })
                 if progress_callback:
                     progress_callback(f"[{completed_count}/{len(files)}] Skipped ({result['skip_reason']}): {result['file_name']}")
             else:
@@ -371,5 +381,135 @@ def index_folder(
         progress_callback(f"\nTop 10 slowest files:")
         for f in sorted_times[:10]:
             progress_callback(f"  {f['file']}: {f['total_time']:.1f}s ({f['chunks']} chunks, embed: {f['embed_time']:.1f}s)")
+
+    return stats
+
+
+def reindex_files(
+    file_paths: List[str],
+    vector_store: Optional[VectorStore] = None,
+    metadata_store: Optional[MetadataStore] = None,
+    progress_callback: Optional[Callable[[str], None]] = None,
+    parallel_workers: int = PARALLEL_WORKERS,
+    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE
+) -> dict:
+    """
+    Reindex specific files (force reindex).
+
+    Args:
+        file_paths: List of file paths to reindex
+        vector_store: Optional existing VectorStore instance
+        metadata_store: Optional existing MetadataStore instance
+        progress_callback: Optional callback for progress updates
+        parallel_workers: Number of parallel workers (default: 3)
+        max_chunks_per_file: Max chunks per file before skipping (default: 50)
+
+    Returns:
+        Dict with indexing statistics
+    """
+    if vector_store is None:
+        vector_store = VectorStore()
+    if metadata_store is None:
+        metadata_store = MetadataStore()
+
+    existing_files = [f for f in file_paths if Path(f).exists()]
+    missing_files = [f for f in file_paths if not Path(f).exists()]
+
+    if progress_callback:
+        progress_callback(f"Reindexing {len(existing_files)} files (workers: {parallel_workers}, max chunks: {max_chunks_per_file})")
+        if missing_files:
+            progress_callback(f"Warning: {len(missing_files)} files no longer exist and will be removed from index")
+
+    for missing_file in missing_files:
+        vector_store.delete_by_file(missing_file)
+        metadata_store.remove_file(missing_file)
+        if progress_callback:
+            progress_callback(f"Removed missing file from index: {Path(missing_file).name}")
+
+    stats = {
+        "total_files": len(existing_files),
+        "indexed_files": 0,
+        "skipped_unchanged": 0,
+        "skipped_limits": 0,
+        "total_chunks": 0,
+        "total_time": 0.0,
+        "total_embed_time": 0.0,
+        "file_times": [],
+        "errors": [],
+        "removed_missing": len(missing_files),
+        "skipped_files": []
+    }
+
+    if not existing_files:
+        return stats
+
+    folder_start = time.time()
+    db_lock = threading.Lock()
+    completed_count = 0
+
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        futures = {
+            executor.submit(
+                _process_single_file,
+                file_path,
+                vector_store,
+                metadata_store,
+                db_lock,
+                True,
+                max_chunks_per_file
+            ): file_path
+            for file_path in existing_files
+        }
+
+        for future in as_completed(futures):
+            completed_count += 1
+            result = future.result()
+
+            if result["error"]:
+                stats["errors"].append(f"Error indexing {result['file_path']}: {result['error']}")
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(existing_files)}] ERROR: {result['file_name']} - {result['error']}")
+            elif result["skipped"]:
+                stats["skipped_limits"] += 1
+                stats["file_times"].append({
+                    "file": result["file_name"],
+                    "skipped": True,
+                    "reason": result["skip_reason"]
+                })
+                if result.get("chunks_would_be"):
+                    stats["skipped_files"].append({
+                        "file_name": result["file_name"],
+                        "reason": result["skip_reason"],
+                        "chunks_would_be": result["chunks_would_be"]
+                    })
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(existing_files)}] Skipped ({result['skip_reason']}): {result['file_name']}")
+            else:
+                stats["indexed_files"] += 1
+                stats["total_chunks"] += result["chunks"]
+                stats["total_embed_time"] += result["embed_time"]
+                stats["file_times"].append({
+                    "file": result["file_name"],
+                    "chunks": result["chunks"],
+                    "total_time": result["total_time"],
+                    "embed_time": result["embed_time"],
+                    "extract_time": result["extract_time"],
+                })
+                if progress_callback:
+                    rate = result["chunks"] / result["embed_time"] if result["embed_time"] > 0 else 0
+                    progress_callback(
+                        f"[{completed_count}/{len(existing_files)}] Reindexed: {result['file_name']} "
+                        f"({result['chunks']} chunks, {result['total_time']:.1f}s, {rate:.1f} c/s)"
+                    )
+
+    stats["total_time"] = time.time() - folder_start
+
+    if progress_callback and stats["indexed_files"] > 0:
+        progress_callback("\n" + "=" * 50)
+        progress_callback("REINDEX COMPLETE")
+        progress_callback("=" * 50)
+        progress_callback(f"Total time: {stats['total_time']:.1f}s")
+        progress_callback(f"Files reindexed: {stats['indexed_files']}")
+        progress_callback(f"Total chunks: {stats['total_chunks']}")
 
     return stats

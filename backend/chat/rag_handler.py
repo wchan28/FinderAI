@@ -9,7 +9,7 @@ from backend.db.vector_store import VectorStore
 from backend.search.retriever import search_documents, get_context_for_query, search_files_by_name
 
 
-LLM_MODEL = "llama3.2:3b"
+LLM_MODEL = "llama3.1:8b"
 
 FILE_LISTING_PATTERNS = [
     r'\b(list|show|give|find|get)\b.*\bfiles?\b',
@@ -25,8 +25,9 @@ def is_file_listing_query(query: str) -> bool:
     query_lower = query.lower()
     return any(re.search(pattern, query_lower) for pattern in FILE_LISTING_PATTERNS)
 
-RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on the user's local files.
-You have access to document excerpts from the user's files. Use ONLY the information provided in the context to answer questions.
+RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on the user's own local files.
+These documents belong to the user and they have full access to them. Your job is to help them find and extract information from their own files.
+Use ONLY the information provided in the context to answer questions.
 Always cite which file(s) your answer comes from.
 If the information is not in the provided documents, clearly say so - do not make up information.
 Keep responses concise and well-formatted. Use markdown for readability."""

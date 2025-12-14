@@ -141,3 +141,43 @@ class VectorStore:
                 })
 
         return search_results
+
+    def get_chunks_by_file_and_page(
+        self,
+        file_path: str,
+        page_number: int
+    ) -> List[Dict]:
+        """
+        Get all chunks from a specific file and page/slide number.
+
+        Args:
+            file_path: Path to the file
+            page_number: Page or slide number
+
+        Returns:
+            List of chunks with text and metadata
+        """
+        results = self.collection.get(
+            where={
+                "$and": [
+                    {"file_path": file_path},
+                    {"slide_number": page_number}
+                ]
+            },
+            include=["documents", "metadatas"]
+        )
+
+        chunks = []
+        if results["ids"]:
+            for i, doc_id in enumerate(results["ids"]):
+                chunks.append({
+                    "id": doc_id,
+                    "text": results["documents"][i],
+                    "metadata": results["metadatas"][i],
+                    "file_path": file_path,
+                    "file_name": Path(file_path).name,
+                    "slide_number": page_number,
+                    "relevance_score": 1.0
+                })
+
+        return chunks

@@ -26,6 +26,7 @@ class StatusResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     ollama: bool
+    embedding_model: bool
 
 
 @router.get("/status", response_model=StatusResponse)
@@ -56,11 +57,18 @@ async def get_status():
 async def health_check():
     """Check if backend and Ollama are ready."""
     ollama_ok = False
+    embedding_model_ok = False
     try:
         import ollama
-        ollama.list()
+        from backend.indexer.embedder import EMBEDDING_MODEL
+
+        models_response = ollama.list()
         ollama_ok = True
+
+        models = models_response.get("models", [])
+        model_names = [m.get("name", "").split(":")[0] for m in models]
+        embedding_model_ok = EMBEDDING_MODEL in model_names
     except Exception:
         pass
 
-    return HealthResponse(status="ok", ollama=ollama_ok)
+    return HealthResponse(status="ok", ollama=ollama_ok, embedding_model=embedding_model_ok)

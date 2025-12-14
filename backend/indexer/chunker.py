@@ -1,11 +1,36 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 
-CHUNK_SIZE = 800
-CHUNK_OVERLAP = 200
+CHUNK_SIZE_DEFAULT = 2000
+CHUNK_SIZE_DOCX = 900
+CHUNK_SIZE_XLSX = 1000
+CHUNK_OVERLAP_DEFAULT = 500
+CHUNK_OVERLAP_DOCX = 200
+CHUNK_OVERLAP_XLSX = 200
+
+CHUNK_SIZE = CHUNK_SIZE_DEFAULT
+CHUNK_OVERLAP = CHUNK_OVERLAP_DEFAULT
+
+
+def normalize_text(text: str) -> str:
+    """Normalize text to reduce token count."""
+    text = re.sub(r'_{10,}', '__________', text)
+    text = re.sub(r' \| ', ' ', text)
+    return text
+
+
+def get_chunk_params(file_path: str) -> Tuple[int, int]:
+    """Return (chunk_size, chunk_overlap) based on file type."""
+    lower_path = file_path.lower()
+    if lower_path.endswith('.docx'):
+        return CHUNK_SIZE_DOCX, CHUNK_OVERLAP_DOCX
+    if lower_path.endswith('.xlsx'):
+        return CHUNK_SIZE_XLSX, CHUNK_OVERLAP_XLSX
+    return CHUNK_SIZE_DEFAULT, CHUNK_OVERLAP_DEFAULT
 
 
 def chunk_text(
@@ -30,6 +55,8 @@ def chunk_text(
     """
     if not text.strip():
         return []
+
+    text = normalize_text(text)
 
     file_name = Path(file_path).name
     parent_folder = Path(file_path).parent.name

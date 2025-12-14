@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { streamIndex, getStatus, StatusResponse, IndexStats } from '../api/client'
+import { streamIndex, streamReindex, getStatus, StatusResponse, IndexStats } from '../api/client'
 
 export function useIndexing() {
   const [isIndexing, setIsIndexing] = useState(false)
@@ -41,6 +41,30 @@ export function useIndexing() {
     })
   }, [refreshStatus])
 
+  const reindexAll = useCallback(async (maxChunks: number = 50) => {
+    setIsIndexing(true)
+    setProgress([])
+    setStats(null)
+    setError(null)
+
+    await streamReindex(maxChunks, {
+      onProgress: (message) => {
+        setProgress(prev => [...prev, message])
+      },
+      onStats: (newStats) => {
+        setStats(newStats)
+      },
+      onDone: () => {
+        setIsIndexing(false)
+        refreshStatus()
+      },
+      onError: (err) => {
+        setError(err)
+        setIsIndexing(false)
+      },
+    })
+  }, [refreshStatus])
+
   return {
     isIndexing,
     progress,
@@ -48,6 +72,7 @@ export function useIndexing() {
     status,
     error,
     startIndexing,
+    reindexAll,
     refreshStatus,
   }
 }

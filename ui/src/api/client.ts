@@ -18,6 +18,12 @@ export interface StatusResponse {
   }>
 }
 
+export interface SkippedFile {
+  file_name: string
+  reason: string
+  chunks_would_be: number
+}
+
 export interface IndexStats {
   total_files: number
   indexed_files: number
@@ -26,6 +32,7 @@ export interface IndexStats {
   total_chunks: number
   total_time: number
   errors: string[]
+  skipped_files: SkippedFile[]
 }
 
 export async function getStatus(): Promise<StatusResponse> {
@@ -121,6 +128,28 @@ export async function streamIndex(
     return
   }
 
+  await processSSEStream(res, callbacks)
+}
+
+export async function streamReindex(
+  maxChunks: number,
+  callbacks: IndexStreamCallbacks
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/reindex`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ max_chunks: maxChunks }),
+  })
+
+  if (!res.ok) {
+    callbacks.onError('Failed to start reindexing')
+    return
+  }
+
+  await processSSEStream(res, callbacks)
+}
+
+async function processSSEStream(res: Response, callbacks: IndexStreamCallbacks): Promise<void> {
   const reader = res.body?.getReader()
   if (!reader) {
     callbacks.onError('No response body')

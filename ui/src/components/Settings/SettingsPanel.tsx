@@ -8,7 +8,7 @@ export function SettingsPanel() {
   const [isOpen, setIsOpen] = useState(false)
   const [folder, setFolder] = useState('')
   const [maxChunks, setMaxChunks] = useState(50)
-  const { isIndexing, progress, stats, status, error, startIndexing, refreshStatus } = useIndexing()
+  const { isIndexing, progress, stats, status, error, startIndexing, reindexAll, refreshStatus } = useIndexing()
 
   useEffect(() => {
     refreshStatus()
@@ -18,6 +18,10 @@ export function SettingsPanel() {
     if (folder) {
       startIndexing(folder, maxChunks)
     }
+  }
+
+  const handleReindex = () => {
+    reindexAll(maxChunks)
   }
 
   return (
@@ -80,11 +84,12 @@ export function SettingsPanel() {
               {isIndexing ? 'Indexing...' : 'Index Folder'}
             </button>
             <button
-              onClick={refreshStatus}
-              disabled={isIndexing}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              onClick={handleReindex}
+              disabled={isIndexing || !status?.indexed_files}
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
+              Reindex
             </button>
           </div>
 
@@ -102,6 +107,50 @@ export function SettingsPanel() {
               <p>Files indexed: {stats.indexed_files}</p>
               <p>Chunks created: {stats.total_chunks}</p>
               <p>Time: {stats.total_time.toFixed(1)}s</p>
+            </div>
+          )}
+
+          {stats && !isIndexing && stats.skipped_files?.length > 0 && (
+            <div className="p-3 bg-amber-50 text-amber-800 text-sm rounded-lg">
+              <p className="font-medium mb-2">
+                {stats.skipped_files.length} file(s) skipped (exceeded {maxChunks} chunk limit)
+              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {stats.skipped_files.map((file, i) => (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span className="truncate">{file.file_name}</span>
+                    <span className="text-amber-600 ml-2 whitespace-nowrap">
+                      {file.chunks_would_be} chunks needed
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-amber-600 mt-2">
+                Increase "Max Chunks per File" above to index these files
+              </p>
+            </div>
+          )}
+
+          {stats && !isIndexing && stats.errors?.length > 0 && (
+            <div className="p-3 bg-red-50 text-red-800 text-sm rounded-lg">
+              <p className="font-medium mb-2">
+                {stats.errors.length} file(s) failed to index
+              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {stats.errors.map((error, i) => {
+                  const match = error.match(/Error indexing .*\/(.+?): (.+)/)
+                  const fileName = match ? match[1] : 'Unknown file'
+                  const reason = match ? match[2] : error
+                  return (
+                    <div key={i} className="text-xs">
+                      <span className="font-medium">{fileName}</span>
+                      <span className="text-red-600 ml-1 block truncate" title={reason}>
+                        {reason.length > 60 ? reason.slice(0, 60) + '...' : reason}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
