@@ -26,10 +26,7 @@ export function SettingsPanel() {
 
   return (
     <div className="border-b bg-white">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-      >
+      <div className="drag-region flex items-center justify-between pl-20 pr-4 py-3">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-gray-500" />
           <span className="font-medium text-gray-700">Settings & Indexing</span>
@@ -39,12 +36,17 @@ export function SettingsPanel() {
             </span>
           )}
         </div>
-        {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-gray-400" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-gray-400" />
-        )}
-      </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="no-drag p-1 hover:bg-gray-100 rounded transition-colors"
+        >
+          {isOpen ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+      </div>
 
       {isOpen && (
         <div className="px-4 pb-4 space-y-4">

@@ -6,9 +6,11 @@ from typing import List, Dict, Tuple
 
 
 CHUNK_SIZE_DEFAULT = 2000
+CHUNK_SIZE_PDF = 2000
 CHUNK_SIZE_DOCX = 900
 CHUNK_SIZE_XLSX = 1000
 CHUNK_OVERLAP_DEFAULT = 500
+CHUNK_OVERLAP_PDF = 500
 CHUNK_OVERLAP_DOCX = 200
 CHUNK_OVERLAP_XLSX = 200
 
@@ -20,12 +22,18 @@ def normalize_text(text: str) -> str:
     """Normalize text to reduce token count."""
     text = re.sub(r'_{10,}', '__________', text)
     text = re.sub(r' \| ', ' ', text)
+    text = re.sub(r'\.{5,}', '...', text)
+    text = re.sub(r'-{5,}', '---', text)
+    text = re.sub(r'={5,}', '===', text)
+    text = re.sub(r'\s{3,}', '  ', text)
     return text
 
 
 def get_chunk_params(file_path: str) -> Tuple[int, int]:
     """Return (chunk_size, chunk_overlap) based on file type."""
     lower_path = file_path.lower()
+    if lower_path.endswith('.pdf'):
+        return CHUNK_SIZE_PDF, CHUNK_OVERLAP_PDF
     if lower_path.endswith('.docx'):
         return CHUNK_SIZE_DOCX, CHUNK_OVERLAP_DOCX
     if lower_path.endswith('.xlsx'):
