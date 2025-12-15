@@ -11,7 +11,7 @@ export interface Message {
   status?: ThinkingStatus
 }
 
-export function useChat() {
+export function useChat(model: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -88,8 +88,8 @@ export function useChat() {
         })
         setIsLoading(false)
       },
-    })
-  }, [])
+    }, model)
+  }, [model])
 
   const clearMessages = useCallback(() => {
     setMessages([])

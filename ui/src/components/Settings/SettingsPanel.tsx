@@ -1,18 +1,40 @@
 import { useState, useEffect } from 'react'
-import { Settings, ChevronDown, ChevronUp, Database, FileText, RefreshCw } from 'lucide-react'
+import { Settings, ChevronDown, ChevronUp, Database, FileText, RefreshCw, Cpu, Loader2 } from 'lucide-react'
 import { FolderPicker } from './FolderPicker'
 import { ProgressBar } from '../Indexing/ProgressBar'
 import { useIndexing } from '../../hooks/useIndexing'
+import { getAvailableModels, type ModelInfo } from '../../api/client'
 
-export function SettingsPanel() {
+type SettingsPanelProps = {
+  model: string
+  onModelChange: (model: string) => void
+}
+
+export function SettingsPanel({ model, onModelChange }: SettingsPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [folder, setFolder] = useState('')
   const [maxChunks, setMaxChunks] = useState(50)
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([])
+  const [modelsLoading, setModelsLoading] = useState(true)
   const { isIndexing, progress, stats, status, error, startIndexing, reindexAll, refreshStatus } = useIndexing()
 
   useEffect(() => {
     refreshStatus()
   }, [refreshStatus])
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const models = await getAvailableModels()
+        setAvailableModels(models)
+      } catch {
+        setAvailableModels([])
+      } finally {
+        setModelsLoading(false)
+      }
+    }
+    fetchModels()
+  }, [])
 
   const handleIndex = () => {
     if (folder) {
@@ -73,6 +95,38 @@ export function SettingsPanel() {
             />
             <p className="text-xs text-gray-400 mt-1">
               Higher = more content indexed, but slower. Start with 50, increase if needed.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Cpu className="w-4 h-4" />
+              LLM Model
+            </label>
+            {modelsLoading ? (
+              <div className="flex items-center gap-2 px-3 py-2 text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading models...
+              </div>
+            ) : availableModels.length === 0 ? (
+              <div className="px-3 py-2 text-amber-600 text-sm">
+                No models found. Install models with: <code className="bg-gray-100 px-1 rounded">ollama pull llama3.2:3b</code>
+              </div>
+            ) : (
+              <select
+                value={model}
+                onChange={(e) => onModelChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {availableModels.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              Smaller models are faster but may be less accurate. Try different models if results are poor.
             </p>
           </div>
 

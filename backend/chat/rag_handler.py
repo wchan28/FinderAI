@@ -9,7 +9,7 @@ from backend.db.vector_store import VectorStore
 from backend.search.retriever import search_documents, get_context_for_query, search_files_by_name
 
 
-LLM_MODEL = "llama3.1:8b"
+DEFAULT_LLM_MODEL = "llama3.1:8b"
 
 FILE_LISTING_PATTERNS = [
     r'\b(list|show|give|find|get)\b.*\bfiles?\b',
@@ -26,11 +26,17 @@ def is_file_listing_query(query: str) -> bool:
     return any(re.search(pattern, query_lower) for pattern in FILE_LISTING_PATTERNS)
 
 RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on the user's own local files.
-These documents belong to the user and they have full access to them. Your job is to help them find and extract information from their own files.
-Use ONLY the information provided in the context to answer questions.
-Always cite which file(s) your answer comes from.
-If the information is not in the provided documents, clearly say so - do not make up information.
-Keep responses concise and well-formatted. Use markdown for readability."""
+
+CRITICAL INSTRUCTIONS:
+1. Use ONLY the information provided in the document excerpts below - do not use external knowledge
+2. When the user mentions a company or file name, prioritize documents from that source
+   - Match names flexibly: "elililly" = "Eli Lilly" = "EliLilly_Protocol", "ucb" = "UCB"
+3. ALWAYS cite which file(s) your answer comes from using the exact filename
+4. If information exists in the provided documents, you MUST use it - do not claim it's missing
+5. Only say "not found" if you've thoroughly checked ALL provided documents and the information truly does not exist
+6. When multiple documents are provided, answer from the most relevant one based on the user's query
+
+Keep responses concise and well-formatted using markdown."""
 
 RAG_USER_PROMPT_TEMPLATE = """Based on the following document excerpts from my files:
 
@@ -65,7 +71,8 @@ def get_answer(
     query: str,
     vector_store: Optional[VectorStore] = None,
     n_context_results: int = 5,
-    stream: bool = False
+    stream: bool = False,
+    model: str = DEFAULT_LLM_MODEL
 ) -> str | Generator[str, None, None]:
     """
     Get an answer to a query using RAG.
@@ -75,6 +82,7 @@ def get_answer(
         vector_store: Optional VectorStore instance
         n_context_results: Number of context chunks to retrieve
         stream: If True, return a generator that yields response chunks
+        model: The LLM model to use for generation
 
     Returns:
         The LLM's response (or generator if streaming)
@@ -100,15 +108,15 @@ def get_answer(
     )
 
     if stream:
-        return _stream_response(user_prompt)
+        return _stream_response(user_prompt, model)
     else:
-        return _get_full_response(user_prompt)
+        return _get_full_response(user_prompt, model)
 
 
-def _get_full_response(user_prompt: str) -> str:
+def _get_full_response(user_prompt: str, model: str = DEFAULT_LLM_MODEL) -> str:
     """Get complete response from LLM."""
     response = ollama.chat(
-        model=LLM_MODEL,
+        model=model,
         messages=[
             {"role": "system", "content": RAG_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
@@ -117,10 +125,10 @@ def _get_full_response(user_prompt: str) -> str:
     return response["message"]["content"]
 
 
-def _stream_response(user_prompt: str) -> Generator[str, None, None]:
+def _stream_response(user_prompt: str, model: str = DEFAULT_LLM_MODEL) -> Generator[str, None, None]:
     """Stream response from LLM."""
     stream = ollama.chat(
-        model=LLM_MODEL,
+        model=model,
         messages=[
             {"role": "system", "content": RAG_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}

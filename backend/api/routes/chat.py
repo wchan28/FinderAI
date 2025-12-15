@@ -15,9 +15,10 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     message: str
     n_context_results: int = 10
+    model: str = "llama3.1:8b"
 
 
-async def generate_chat_stream(message: str, n_context_results: int):
+async def generate_chat_stream(message: str, n_context_results: int, model: str):
     """Generate SSE stream for chat response."""
     vector_store = VectorStore()
 
@@ -52,7 +53,7 @@ async def generate_chat_stream(message: str, n_context_results: int):
 
     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
 
-    for chunk in get_answer(message, vector_store, n_context_results=n_context_results, stream=True):
+    for chunk in get_answer(message, vector_store, n_context_results=n_context_results, stream=True, model=model):
         yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
 
     yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
@@ -62,7 +63,7 @@ async def generate_chat_stream(message: str, n_context_results: int):
 async def chat(request: ChatRequest):
     """Stream chat response using RAG."""
     return StreamingResponse(
-        generate_chat_stream(request.message, request.n_context_results),
+        generate_chat_stream(request.message, request.n_context_results, request.model),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

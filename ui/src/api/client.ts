@@ -47,6 +47,19 @@ export async function checkHealth(): Promise<{ status: string; ollama: boolean }
   return res.json()
 }
 
+export interface ModelInfo {
+  name: string
+  label: string
+  size: string
+}
+
+export async function getAvailableModels(): Promise<ModelInfo[]> {
+  const res = await fetch(`${API_BASE}/api/models`)
+  if (!res.ok) throw new Error('Failed to get models')
+  const data = await res.json()
+  return data.models
+}
+
 export interface ChatStreamCallbacks {
   onChunk: (chunk: string) => void
   onSources: (sources: Source[]) => void
@@ -54,11 +67,15 @@ export interface ChatStreamCallbacks {
   onError: (error: string) => void
 }
 
-export async function streamChat(message: string, callbacks: ChatStreamCallbacks): Promise<void> {
+export async function streamChat(
+  message: string,
+  callbacks: ChatStreamCallbacks,
+  model?: string
+): Promise<void> {
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, ...(model && { model }) }),
   })
 
   if (!res.ok) {

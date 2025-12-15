@@ -20,6 +20,7 @@ SECTION_KEYWORDS = {
 
 FILE_HINTS = {
     "eli lilly": ["elililly", "lilly"],
+    "elililly": ["elililly", "lilly"],
     "lilly": ["elililly", "lilly"],
     "ucb": ["ucb"],
     "incyte": ["incyte"],
