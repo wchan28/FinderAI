@@ -12,12 +12,23 @@ from backend.search.retriever import search_documents, get_context_for_query, se
 DEFAULT_LLM_MODEL = "llama3.1:8b"
 
 FILE_LISTING_PATTERNS = [
-    r'\b(list|show|give|find|get)\b.*\bfiles?\b',
-    r'\bfiles?\b.*\b(named?|called|containing|with)\b',
-    r'\bwhat\b.*\bfiles?\b',
-    r'\bwhich\b.*\bfiles?\b',
-    r'\ball\b.*\bfiles?\b',
+    r'\bfiles?\b.*\b(named?|called)\b',
+    r'\bwhat\b.*\bfiles?\b.*\b(named?|called)\b',
+    r'\bwhich\b.*\bfiles?\b.*\b(named?|called)\b',
 ]
+
+FILE_CONTENT_PATTERNS = [
+    r'\bfiles?\b.*\b(talk|about|mention|discuss|contain|related|cover)\b',
+    r'\b(talk|about|mention|discuss|related)\b.*\bfiles?\b',
+    r'\b(list|show|give|find|get)\b.*\bfiles?\b.*\b(about|on|for|related|mention)\b',
+    r'\b(list|show|give|find|get)\b.*\bfiles?\b',
+]
+
+
+def is_file_content_query(query: str) -> bool:
+    """Check if query is asking for files about a topic (content-based search)."""
+    query_lower = query.lower()
+    return any(re.search(pattern, query_lower) for pattern in FILE_CONTENT_PATTERNS)
 
 
 def is_file_listing_query(query: str) -> bool:
@@ -57,14 +68,39 @@ I found {count} files matching your search:
 {additional_context}"""
 
 
-def _format_file_listing_response(file_matches: List[Dict], query: str) -> str:
+def _format_file_listing_response(file_matches: List[Dict], query: str, by_content: bool = False) -> str:
     """Format a clean response for file listing queries."""
     if not file_matches:
         return "No files found matching your search."
 
-    file_list = "\n".join(f"- **{m['file_name']}**" for m in file_matches)
+    if by_content:
+        file_list = "\n".join(
+            f"- **{m['file_name']}** ({m['relevance_score']:.0%} relevant)"
+            for m in file_matches
+        )
+        return f"Found **{len(file_matches)} files** related to your search:\n\n{file_list}"
+    else:
+        file_list = "\n".join(f"- **{m['file_name']}**" for m in file_matches)
+        return f"Found **{len(file_matches)} files** matching your search:\n\n{file_list}"
 
-    return f"Found **{len(file_matches)} files** matching your search:\n\n{file_list}"
+
+def search_files_by_content(
+    query: str,
+    vector_store: Optional[VectorStore] = None,
+    n_results: int = 20
+) -> List[Dict]:
+    """Search for files whose content matches the query topic."""
+    results = search_documents(query, vector_store, n_results)
+    seen_files = {}
+    for r in results:
+        file_path = r["file_path"]
+        if file_path not in seen_files:
+            seen_files[file_path] = {
+                "file_path": file_path,
+                "file_name": r["file_name"],
+                "relevance_score": r["relevance_score"]
+            }
+    return sorted(seen_files.values(), key=lambda x: x["relevance_score"], reverse=True)
 
 
 def get_answer(
@@ -90,9 +126,17 @@ def get_answer(
     if vector_store is None:
         vector_store = VectorStore()
 
+    if is_file_content_query(query):
+        file_matches = search_files_by_content(query, vector_store)
+        if file_matches:
+            response = _format_file_listing_response(file_matches, query, by_content=True)
+            if stream:
+                return iter([response])
+            else:
+                return response
+
     if is_file_listing_query(query):
         file_matches = search_files_by_name(query, vector_store)
-
         if file_matches:
             response = _format_file_listing_response(file_matches, query)
             if stream:
