@@ -87,6 +87,44 @@ class VectorStore:
 
         return search_results
 
+    def search_with_filter(
+        self,
+        query_embedding: List[float],
+        n_results: int = 5,
+        file_paths: Optional[List[str]] = None
+    ) -> List[Dict]:
+        """
+        Search for similar chunks with optional file path filtering.
+
+        Pre-filters by file_path BEFORE semantic search for better relevance
+        when user specifies a particular document.
+        """
+        where_filter = None
+        if file_paths:
+            if len(file_paths) == 1:
+                where_filter = {"file_path": file_paths[0]}
+            else:
+                where_filter = {"file_path": {"$in": file_paths}}
+
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=n_results,
+            where=where_filter,
+            include=["documents", "metadatas", "distances"]
+        )
+
+        search_results = []
+        if results["ids"] and results["ids"][0]:
+            for i, doc_id in enumerate(results["ids"][0]):
+                search_results.append({
+                    "id": doc_id,
+                    "text": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "distance": results["distances"][0][i]
+                })
+
+        return search_results
+
     def delete_by_file(self, file_path: str) -> None:
         """Delete all chunks associated with a file path."""
         results = self.collection.get(
@@ -115,32 +153,42 @@ class VectorStore:
 
     def search_by_text(self, search_text: str, limit: int = 5) -> List[Dict]:
         """
-        Search for chunks containing specific text.
+        Search for chunks containing specific text (case-insensitive).
 
-        Args:
-            search_text: Text to search for in document content
-            limit: Maximum number of results to return
-
-        Returns:
-            List of matching chunks with text and metadata
+        Tries multiple case variants since ChromaDB $contains is case-sensitive.
         """
-        results = self.collection.get(
-            where_document={"$contains": search_text},
-            include=["documents", "metadatas"],
-            limit=limit
-        )
-
+        seen_ids = set()
         search_results = []
-        if results["ids"]:
-            for i, doc_id in enumerate(results["ids"]):
-                search_results.append({
-                    "id": doc_id,
-                    "text": results["documents"][i],
-                    "metadata": results["metadatas"][i],
-                    "distance": 0.0
-                })
 
-        return search_results
+        variants = [
+            search_text,
+            search_text.lower(),
+            search_text.upper(),
+            search_text.title(),
+        ]
+
+        for variant in variants:
+            results = self.collection.get(
+                where_document={"$contains": variant},
+                include=["documents", "metadatas"],
+                limit=limit
+            )
+
+            if results["ids"]:
+                for i, doc_id in enumerate(results["ids"]):
+                    if doc_id not in seen_ids:
+                        seen_ids.add(doc_id)
+                        search_results.append({
+                            "id": doc_id,
+                            "text": results["documents"][i],
+                            "metadata": results["metadatas"][i],
+                            "distance": 0.0
+                        })
+
+            if len(search_results) >= limit:
+                break
+
+        return search_results[:limit]
 
     def get_chunks_by_file_and_page(
         self,

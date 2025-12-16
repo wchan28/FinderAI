@@ -29,6 +29,30 @@ FILE_HINTS = {
 PROTOCOL_KEYWORDS = ["protocol", "study protocol"]
 
 
+def _extract_exact_filename(query: str, indexed_files: List[str]) -> Optional[str]:
+    """
+    Extract exact filename if explicitly mentioned in query.
+
+    Returns the full file path if a filename is found in the query,
+    None otherwise.
+    """
+    query_lower = query.lower()
+
+    for file_path in indexed_files:
+        file_name = Path(file_path).name.lower()
+        file_name_no_ext = Path(file_path).stem.lower()
+
+        if file_name in query_lower or file_name_no_ext in query_lower:
+            return file_path
+
+        normalized_name = file_name.replace("_", "").replace(" ", "").replace("-", "")
+        normalized_query = query_lower.replace("_", "").replace(" ", "").replace("-", "")
+        if normalized_name in normalized_query:
+            return file_path
+
+    return None
+
+
 def _extract_file_hints(query: str) -> tuple[List[str], bool]:
     """Extract file hints and whether user is asking for a protocol document."""
     query_lower = query.lower()
@@ -126,27 +150,8 @@ def search_files_by_name(
     return matches
 
 
-def search_documents(
-    query: str,
-    vector_store: Optional[VectorStore] = None,
-    n_results: int = 10
-) -> List[Dict]:
-    """
-    Search indexed documents for content matching the query.
-
-    Returns list of results with text, file info, and relevance score.
-    If query mentions a specific file/protocol name, results are filtered
-    to prioritize matching files.
-    """
-    if vector_store is None:
-        vector_store = VectorStore()
-
-    file_hints, is_protocol_query = _extract_file_hints(query)
-    search_n = n_results * 3 if file_hints else n_results
-
-    query_embedding = generate_embedding(query)
-    results = vector_store.search(query_embedding, n_results=search_n)
-
+def _format_search_results(results: List[Dict]) -> List[Dict]:
+    """Format raw search results into the expected output format."""
     formatted_results = []
     for r in results:
         file_path = r["metadata"]["file_path"]
@@ -157,28 +162,62 @@ def search_documents(
             "slide_number": r["metadata"]["slide_number"],
             "relevance_score": 1 - r["distance"]
         })
+    return formatted_results
 
-    if file_hints:
-        formatted_results = _filter_results_by_file_hint(
-            formatted_results, file_hints, is_protocol_query, min_results=n_results
+
+def search_documents(
+    query: str,
+    vector_store: Optional[VectorStore] = None,
+    n_results: int = 10
+) -> List[Dict]:
+    """
+    Search indexed documents for content matching the query.
+
+    When a specific filename is mentioned, searches ONLY within that file.
+    When company hints are detected, searches only within matching files.
+    Otherwise, searches across all documents.
+    """
+    if vector_store is None:
+        vector_store = VectorStore()
+
+    indexed_files = vector_store.get_indexed_files()
+
+    exact_file = _extract_exact_filename(query, indexed_files)
+    if exact_file:
+        query_embedding = generate_embedding(query)
+        results = vector_store.search_with_filter(
+            query_embedding,
+            n_results=n_results,
+            file_paths=[exact_file]
         )
+        return _format_search_results(results)
 
-    return formatted_results[:n_results]
+    file_hints, is_protocol_query = _extract_file_hints(query)
+    if file_hints:
+        hint_matching_files = _get_hint_matching_files(
+            vector_store, file_hints, is_protocol_query
+        )
+        if hint_matching_files:
+            query_embedding = generate_embedding(query)
+            results = vector_store.search_with_filter(
+                query_embedding,
+                n_results=n_results,
+                file_paths=list(hint_matching_files)
+            )
+            return _format_search_results(results)
+
+    query_embedding = generate_embedding(query)
+    results = vector_store.search(query_embedding, n_results=n_results)
+    return _format_search_results(results)
 
 
 def _merge_and_dedupe(
     semantic_results: List[Dict],
     keyword_results: List[Dict]
 ) -> List[Dict]:
-    """Merge semantic and keyword results, removing duplicates."""
+    """Merge results, prioritizing keyword matches first."""
     seen_ids = set()
     merged = []
-
-    for r in semantic_results:
-        result_id = f"{r['file_path']}::{r['slide_number']}"
-        if result_id not in seen_ids:
-            seen_ids.add(result_id)
-            merged.append(r)
 
     for r in keyword_results:
         file_path = r["metadata"]["file_path"]
@@ -193,6 +232,12 @@ def _merge_and_dedupe(
                 "slide_number": slide_number,
                 "relevance_score": 1.0
             })
+
+    for r in semantic_results:
+        result_id = f"{r['file_path']}::{r['slide_number']}"
+        if result_id not in seen_ids:
+            seen_ids.add(result_id)
+            merged.append(r)
 
     return merged
 
@@ -260,6 +305,7 @@ def _expand_to_adjacent_pages(
             for chunk in adjacent_chunks:
                 if chunk_id not in seen_ids:
                     seen_ids.add(chunk_id)
+                    chunk['relevance_score'] = 0.9
                     expanded.append(chunk)
 
     return expanded
@@ -309,16 +355,37 @@ def get_context_for_query(
         filtered_keyword_results = [
             r for r in keyword_results
             if r['metadata']['file_path'] in relevant_files
+            and search_term.lower() in r['text'].lower()
         ]
         results = _merge_and_dedupe(results, filtered_keyword_results)
 
     if matching_keywords and relevant_files:
         results = _expand_to_adjacent_pages(results, vector_store, relevant_files)
 
+    if 'inclusion' in query_lower and 'exclusion' not in query_lower:
+        results = [
+            r for r in results
+            if 'exclusion criteria' not in r.get('text', '').lower()
+            or 'inclusion criteria' in r.get('text', '').lower()
+        ]
+    elif 'exclusion' in query_lower and 'inclusion' not in query_lower:
+        results = [
+            r for r in results
+            if 'inclusion criteria' not in r.get('text', '').lower()
+            or 'exclusion criteria' in r.get('text', '').lower()
+        ]
+
+    results = results[:n_results]
+
     if not results:
         return "No relevant documents found."
 
-    results.sort(key=lambda r: (r.get('file_path', ''), r.get('slide_number', 0), r.get('chunk_index', 0)))
+    results.sort(key=lambda r: (
+        -r.get('relevance_score', 0),
+        r.get('file_path', ''),
+        r.get('slide_number', 0),
+        r.get('chunk_index', 0)
+    ))
 
     context_parts = []
     for i, r in enumerate(results, 1):

@@ -4,6 +4,7 @@ import pytest
 
 from backend.search.retriever import (
     _extract_file_hints,
+    _extract_exact_filename,
     _filter_results_by_file_hint,
     _get_hint_matching_files,
     _expand_to_adjacent_pages,
@@ -11,6 +12,59 @@ from backend.search.retriever import (
     FILE_HINTS,
     SECTION_KEYWORDS,
 )
+
+
+class TestExtractExactFilename:
+    @pytest.fixture
+    def indexed_files(self):
+        return [
+            "/path/EliLilly_Protocol.pdf",
+            "/path/UCB_Protocol.pdf",
+            "/path/elililly_allothervisits_edited_final.pdf",
+            "/path/Texas Medical License.pdf",
+        ]
+
+    def test_extracts_exact_filename_with_extension(self, indexed_files):
+        result = _extract_exact_filename(
+            "what is in EliLilly_Protocol.pdf",
+            indexed_files
+        )
+        assert result == "/path/EliLilly_Protocol.pdf"
+
+    def test_extracts_filename_without_extension(self, indexed_files):
+        result = _extract_exact_filename(
+            "what is in EliLilly_Protocol",
+            indexed_files
+        )
+        assert result == "/path/EliLilly_Protocol.pdf"
+
+    def test_case_insensitive_matching(self, indexed_files):
+        result = _extract_exact_filename(
+            "what is in elililly_protocol.pdf",
+            indexed_files
+        )
+        assert result == "/path/EliLilly_Protocol.pdf"
+
+    def test_returns_none_for_no_match(self, indexed_files):
+        result = _extract_exact_filename(
+            "what are inclusion criteria",
+            indexed_files
+        )
+        assert result is None
+
+    def test_handles_normalized_names(self, indexed_files):
+        result = _extract_exact_filename(
+            "what is in EliLillyProtocol.pdf",
+            indexed_files
+        )
+        assert result == "/path/EliLilly_Protocol.pdf"
+
+    def test_matches_filename_with_spaces(self, indexed_files):
+        result = _extract_exact_filename(
+            "what is in Texas Medical License.pdf",
+            indexed_files
+        )
+        assert result == "/path/Texas Medical License.pdf"
 
 
 class TestExtractFileHints:
