@@ -1,12 +1,14 @@
 import { useState, useCallback, KeyboardEvent } from 'react'
-import { Send } from 'lucide-react'
+import { Send, StopCircle } from 'lucide-react'
 
 interface InputAreaProps {
   onSend: (message: string) => void
+  onStop?: () => void
   disabled?: boolean
+  isLoading?: boolean
 }
 
-export function InputArea({ onSend, disabled }: InputAreaProps) {
+export function InputArea({ onSend, onStop, disabled, isLoading }: InputAreaProps) {
   const [input, setInput] = useState('')
 
   const handleSend = useCallback(() => {
@@ -37,13 +39,23 @@ export function InputArea({ onSend, disabled }: InputAreaProps) {
             rows={1}
             disabled={disabled}
           />
-          <button
-            onClick={handleSend}
-            disabled={disabled || !input.trim()}
-            className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+          {isLoading ? (
+            <button
+              onClick={onStop}
+              className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+              title="Stop generation"
+            >
+              <StopCircle className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={disabled || !input.trim()}
+              className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          )}
         </div>
         <p className="text-xs text-gray-400 mt-2 text-center">
           Press Enter to send, Shift+Enter for new line

@@ -70,12 +70,13 @@ export interface ChatStreamCallbacks {
 export async function streamChat(
   message: string,
   callbacks: ChatStreamCallbacks,
-  model?: string
+  abortSignal?: AbortSignal
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, ...(model && { model }) }),
+    body: JSON.stringify({ message }),
+    signal: abortSignal,
   })
 
   if (!res.ok) {
@@ -203,4 +204,64 @@ async function processSSEStream(res: Response, callbacks: IndexStreamCallbacks):
       }
     }
   }
+}
+
+export interface Settings {
+  llm_provider: string
+  llm_model: string
+  embedding_provider: string
+  embedding_model: string
+  reranking_provider: string
+  reranking_model: string
+  hybrid_search_enabled: boolean
+  initial_results: number
+  rerank_to: number
+  has_openai_key: boolean
+  has_google_key: boolean
+  has_cohere_key: boolean
+  has_voyage_key: boolean
+}
+
+export interface ProviderModels {
+  llm_providers: Record<string, string[]>
+  embedding_providers: Record<string, string[]>
+  reranking_providers: string[]
+}
+
+export async function getSettings(): Promise<Settings> {
+  const res = await fetch(`${API_BASE}/api/settings`)
+  if (!res.ok) throw new Error('Failed to get settings')
+  return res.json()
+}
+
+export async function updateSettings(settings: Partial<Settings>): Promise<Settings> {
+  const res = await fetch(`${API_BASE}/api/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!res.ok) throw new Error('Failed to update settings')
+  return res.json()
+}
+
+export async function saveApiKey(provider: string, apiKey: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/settings/api-key`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, api_key: apiKey }),
+  })
+  if (!res.ok) throw new Error('Failed to save API key')
+}
+
+export async function deleteApiKey(provider: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/settings/api-key/${provider}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to delete API key')
+}
+
+export async function getProviderModels(): Promise<ProviderModels> {
+  const res = await fetch(`${API_BASE}/api/settings/providers`)
+  if (!res.ok) throw new Error('Failed to get providers')
+  return res.json()
 }

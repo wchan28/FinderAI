@@ -2,17 +2,18 @@ import { MessageList } from './MessageList'
 import { InputArea } from './InputArea'
 import { useChat } from '../../hooks/useChat'
 
-type ChatContainerProps = {
-  model: string
-}
-
-export function ChatContainer({ model }: ChatContainerProps) {
-  const { messages, isLoading, sendMessage } = useChat(model)
+export function ChatContainer() {
+  const { messages, isLoading, sendMessage, stopGeneration } = useChat()
 
   return (
     <div className="flex flex-col h-full">
       <MessageList messages={messages} />
-      <InputArea onSend={sendMessage} disabled={isLoading} />
+      <InputArea
+        onSend={sendMessage}
+        onStop={stopGeneration}
+        disabled={isLoading}
+        isLoading={isLoading}
+      />
     </div>
   )
 }

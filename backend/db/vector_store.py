@@ -10,7 +10,7 @@ from chromadb.config import Settings
 class VectorStore:
     """ChromaDB wrapper for storing and searching document embeddings."""
 
-    def __init__(self, persist_dir: str = "./data/chroma_db"):
+    def __init__(self, persist_dir: str = "./data/chroma_db", expected_dimension: Optional[int] = None, auto_reset: bool = True):
         persist_path = Path(persist_dir)
         persist_path.mkdir(parents=True, exist_ok=True)
 
@@ -18,7 +18,46 @@ class VectorStore:
             path=str(persist_path),
             settings=Settings(anonymized_telemetry=False)
         )
+
+        # Auto-detect expected dimension from current embedding provider
+        if expected_dimension is None and auto_reset:
+            try:
+                from backend.indexer.embedder import get_embedding_dimension
+                expected_dimension = get_embedding_dimension()
+            except Exception:
+                pass
+
+        # Check for dimension mismatch and reset if needed
+        if expected_dimension is not None:
+            self._check_and_reset_for_dimension(expected_dimension)
+
         self.collection = self.client.get_or_create_collection(
+            name="documents",
+            metadata={"hnsw:space": "cosine"}
+        )
+
+    def _check_and_reset_for_dimension(self, expected_dimension: int) -> None:
+        """Check if existing collection has different dimensions and reset if needed."""
+        try:
+            existing = self.client.get_collection("documents")
+            if existing.count() > 0:
+                # Try to get embeddings to check dimension
+                sample = existing.get(limit=1, include=["embeddings"])
+                if sample["embeddings"] and len(sample["embeddings"]) > 0:
+                    actual_dim = len(sample["embeddings"][0])
+                    if actual_dim != expected_dimension:
+                        print(f"Embedding dimension changed ({actual_dim} -> {expected_dimension}). Resetting collection...")
+                        self.client.delete_collection("documents")
+        except Exception:
+            pass
+
+    def reset_collection(self) -> None:
+        """Delete and recreate the collection (for embedding dimension changes)."""
+        try:
+            self.client.delete_collection("documents")
+        except Exception:
+            pass
+        self.collection = self.client.create_collection(
             name="documents",
             metadata={"hnsw:space": "cosine"}
         )

@@ -1,43 +1,57 @@
+"""Embedding generation using provider abstraction."""
+
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
-import ollama
-
-
-EMBEDDING_MODEL = "nomic-embed-text"
-
-_model_checked = False
+from backend.providers import get_embedding_provider, get_config
+from backend.providers.embedding.base import BaseEmbeddingProvider
 
 
-def ensure_model_available(model: str = EMBEDDING_MODEL) -> None:
-    """Ensure the embedding model is available in Ollama, pulling if needed."""
-    global _model_checked
-    if _model_checked:
-        return
-
-    models_response = ollama.list()
-    models = models_response.get("models", [])
-    model_names = [m.get("name", "").split(":")[0] for m in models]
-
-    if model not in model_names:
-        ollama.pull(model)
-
-    _model_checked = True
+_embedding_provider: Optional[BaseEmbeddingProvider] = None
 
 
-def generate_embedding(text: str, model: str = EMBEDDING_MODEL) -> List[float]:
-    """Generate an embedding for a single piece of text using Ollama."""
-    ensure_model_available(model)
-    response = ollama.embed(model=model, input=text)
-    return response["embeddings"][0]
+def get_provider() -> BaseEmbeddingProvider:
+    """Get or create the global embedding provider."""
+    global _embedding_provider
+    if _embedding_provider is None:
+        _embedding_provider = get_embedding_provider()
+    return _embedding_provider
 
 
-def generate_embeddings(texts: List[str], model: str = EMBEDDING_MODEL) -> List[List[float]]:
-    """Generate embeddings for multiple texts using Ollama."""
+def set_provider(provider: BaseEmbeddingProvider) -> None:
+    """Set the global embedding provider."""
+    global _embedding_provider
+    _embedding_provider = provider
+
+
+def reset_provider() -> None:
+    """Reset the global embedding provider (forces reload from config)."""
+    global _embedding_provider
+    _embedding_provider = None
+
+
+def generate_embedding(text: str) -> List[float]:
+    """Generate an embedding for a single piece of text."""
+    provider = get_provider()
+    return provider.embed_query(text)
+
+
+def generate_embeddings(texts: List[str]) -> List[List[float]]:
+    """Generate embeddings for multiple texts."""
     if not texts:
         return []
+    provider = get_provider()
+    return provider.embed(texts)
 
-    ensure_model_available(model)
-    response = ollama.embed(model=model, input=texts)
-    return response["embeddings"]
+
+def get_embedding_dimension() -> int:
+    """Get the dimension of the current embedding model."""
+    provider = get_provider()
+    return provider.dimension
+
+
+def get_embedding_model_name() -> str:
+    """Get the name of the current embedding model."""
+    provider = get_provider()
+    return f"{provider.name}/{provider.model}"

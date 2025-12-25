@@ -1,15 +1,15 @@
+"""RAG handler with provider abstraction for LLM generation."""
+
 from __future__ import annotations
 
 import re
 from typing import Optional, List, Dict, Generator
 
-import ollama
-
 from backend.db.vector_store import VectorStore
 from backend.search.retriever import search_documents, get_context_for_query, search_files_by_name
+from backend.providers import get_llm_provider, get_config
+from backend.providers.llm.base import BaseLLMProvider, Message
 
-
-DEFAULT_LLM_MODEL = "llama3.1:8b"
 
 FILE_LISTING_PATTERNS = [
     r'\bfiles?\b.*\b(named?|called)\b',
@@ -35,6 +35,7 @@ def is_file_listing_query(query: str) -> bool:
     """Check if query is asking to list files by name."""
     query_lower = query.lower()
     return any(re.search(pattern, query_lower) for pattern in FILE_LISTING_PATTERNS)
+
 
 RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on the user's own local files.
 
@@ -68,6 +69,12 @@ I found {count} files matching your search:
 {additional_context}"""
 
 
+def get_provider(model: Optional[str] = None) -> BaseLLMProvider:
+    """Get the LLM provider (always fresh from config)."""
+    config = get_config()
+    return get_llm_provider(config, model=model)
+
+
 def _format_file_listing_response(file_matches: List[Dict], query: str, by_content: bool = False) -> str:
     """Format a clean response for file listing queries."""
     if not file_matches:
@@ -98,7 +105,7 @@ def search_files_by_content(
             seen_files[file_path] = {
                 "file_path": file_path,
                 "file_name": r["file_name"],
-                "relevance_score": r["relevance_score"]
+                "relevance_score": r.get("relevance_score", r.get("rerank_score", 0.5))
             }
     return sorted(seen_files.values(), key=lambda x: x["relevance_score"], reverse=True)
 
@@ -108,7 +115,7 @@ def get_answer(
     vector_store: Optional[VectorStore] = None,
     n_context_results: int = 5,
     stream: bool = False,
-    model: str = DEFAULT_LLM_MODEL
+    model: Optional[str] = None
 ) -> str | Generator[str, None, None]:
     """
     Get an answer to a query using RAG.
@@ -118,7 +125,7 @@ def get_answer(
         vector_store: Optional VectorStore instance
         n_context_results: Number of context chunks to retrieve
         stream: If True, return a generator that yields response chunks
-        model: The LLM model to use for generation
+        model: Optional model name to override config
 
     Returns:
         The LLM's response (or generator if streaming)
@@ -151,47 +158,21 @@ def get_answer(
         query=query
     )
 
-    if stream:
-        return _stream_response(user_prompt, model)
-    else:
-        return _get_full_response(user_prompt, model)
+    provider = get_provider(model)
 
+    messages = [
+        Message(role="system", content=RAG_SYSTEM_PROMPT),
+        Message(role="user", content=user_prompt),
+    ]
 
-def _get_full_response(user_prompt: str, model: str = DEFAULT_LLM_MODEL) -> str:
-    """Get complete response from LLM."""
-    response = ollama.chat(
-        model=model,
-        messages=[
-            {"role": "system", "content": RAG_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ]
-    )
-    return response["message"]["content"]
-
-
-def _stream_response(user_prompt: str, model: str = DEFAULT_LLM_MODEL) -> Generator[str, None, None]:
-    """Stream response from LLM."""
-    stream = ollama.chat(
-        model=model,
-        messages=[
-            {"role": "system", "content": RAG_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ],
-        stream=True
-    )
-
-    for chunk in stream:
-        if "message" in chunk and "content" in chunk["message"]:
-            yield chunk["message"]["content"]
+    return provider.generate(messages, stream=stream)
 
 
 def chat(
     vector_store: Optional[VectorStore] = None,
     n_context_results: int = 5
 ) -> None:
-    """
-    Interactive chat loop.
-    """
+    """Interactive chat loop."""
     if vector_store is None:
         vector_store = VectorStore()
 

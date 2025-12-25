@@ -1,11 +1,15 @@
+"""Document retrieval with hybrid search and reranking."""
+
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 from backend.db.vector_store import VectorStore
 from backend.indexer.embedder import generate_embedding
+from backend.providers import get_config, get_reranking_provider
+from backend.providers.reranking.base import BaseRerankingProvider
 
 
 SECTION_KEYWORDS = {
@@ -29,13 +33,169 @@ FILE_HINTS = {
 PROTOCOL_KEYWORDS = ["protocol", "study protocol"]
 
 
-def _extract_exact_filename(query: str, indexed_files: List[str]) -> Optional[str]:
+def reciprocal_rank_fusion(
+    ranked_lists: List[List[Tuple[str, float]]],
+    k: int = 60,
+) -> List[Tuple[str, float]]:
     """
-    Extract exact filename if explicitly mentioned in query.
+    Combine multiple ranked lists using Reciprocal Rank Fusion.
 
-    Returns the full file path if a filename is found in the query,
-    None otherwise.
+    RRF_score(d) = sum(1 / (k + rank_i(d))) for all lists i
+
+    Args:
+        ranked_lists: List of ranked lists, each containing (doc_id, score) tuples
+        k: RRF constant (default 60)
+
+    Returns:
+        Combined ranked list sorted by RRF score
     """
+    doc_scores: Dict[str, float] = {}
+
+    for ranked_list in ranked_lists:
+        for rank, (doc_id, _) in enumerate(ranked_list, start=1):
+            if doc_id not in doc_scores:
+                doc_scores[doc_id] = 0.0
+            doc_scores[doc_id] += 1.0 / (k + rank)
+
+    sorted_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
+    return sorted_docs
+
+
+def normalize_scores(results: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
+    """Min-max normalize scores to [0, 1] range."""
+    if not results:
+        return []
+
+    scores = [s for _, s in results]
+    min_s, max_s = min(scores), max(scores)
+
+    if max_s == min_s:
+        return [(doc_id, 1.0) for doc_id, _ in results]
+
+    return [
+        (doc_id, (score - min_s) / (max_s - min_s))
+        for doc_id, score in results
+    ]
+
+
+def hybrid_search(
+    query: str,
+    vector_store: VectorStore,
+    n_results: int = 50,
+    file_paths: Optional[List[str]] = None,
+) -> List[Dict]:
+    """
+    Hybrid search combining vector similarity and BM25.
+
+    Args:
+        query: Search query
+        vector_store: Vector store instance
+        n_results: Number of results to return
+        file_paths: Optional list of file paths to filter results
+
+    Returns:
+        List of search results with text and metadata
+    """
+    config = get_config()
+
+    query_embedding = generate_embedding(query)
+    if file_paths:
+        vector_results = vector_store.search_with_filter(
+            query_embedding,
+            n_results=n_results * 2,
+            file_paths=file_paths,
+        )
+    else:
+        vector_results = vector_store.search(query_embedding, n_results=n_results * 2)
+
+    vector_ranked = [(r["id"], 1 - r["distance"]) for r in vector_results]
+
+    if config.hybrid_search_enabled:
+        try:
+            from backend.search.bm25_index import get_bm25_index
+            bm25_index = get_bm25_index()
+
+            if bm25_index.count() > 0:
+                bm25_results = bm25_index.search(query, n_results=n_results * 2)
+
+                if file_paths:
+                    file_paths_set = set(file_paths)
+                    bm25_results = [
+                        (doc_id, score) for doc_id, score in bm25_results
+                        if any(fp in doc_id for fp in file_paths_set)
+                    ]
+
+                bm25_ranked = normalize_scores(bm25_results)
+
+                fused = reciprocal_rank_fusion([vector_ranked, bm25_ranked])
+
+                top_ids = [doc_id for doc_id, _ in fused[:n_results]]
+                id_to_rank = {doc_id: i for i, doc_id in enumerate(top_ids)}
+
+                results_by_id = {r["id"]: r for r in vector_results}
+                final_results = []
+                for doc_id in top_ids:
+                    if doc_id in results_by_id:
+                        final_results.append(results_by_id[doc_id])
+
+                return final_results
+        except ImportError:
+            pass
+
+    return vector_results[:n_results]
+
+
+def rerank_results(
+    query: str,
+    results: List[Dict],
+    reranker: Optional[BaseRerankingProvider] = None,
+    top_n: int = 10,
+) -> List[Dict]:
+    """
+    Rerank search results using the configured reranking provider.
+
+    Args:
+        query: Search query
+        results: List of search results
+        reranker: Optional reranking provider (uses config if not provided)
+        top_n: Number of results to return
+
+    Returns:
+        Reranked results
+    """
+    if not results:
+        return []
+
+    if reranker is None:
+        reranker = get_reranking_provider()
+
+    if reranker.name == "none":
+        return results[:top_n]
+
+    docs = [
+        {
+            "text": r.get("text", r.get("documents", [""])[0] if isinstance(r.get("documents"), list) else ""),
+            **{k: v for k, v in r.items() if k != "text"},
+        }
+        for r in results
+    ]
+
+    reranked = reranker.rerank(query, docs, top_n=top_n)
+
+    final_results = []
+    for rr in reranked:
+        result = {
+            "text": rr.text,
+            "rerank_score": rr.score,
+            **rr.metadata,
+        }
+        final_results.append(result)
+
+    return final_results
+
+
+def _extract_exact_filename(query: str, indexed_files: List[str]) -> Optional[str]:
+    """Extract exact filename if explicitly mentioned in query."""
     query_lower = query.lower()
 
     for file_path in indexed_files:
@@ -114,7 +274,7 @@ def _extract_search_terms(query: str) -> List[str]:
 
 
 def _normalize_path(path: str) -> str:
-    """Normalize path for matching by removing spaces and lowercasing."""
+    """Normalize path for matching."""
     return path.lower().replace(" ", "").replace("-", "").replace("_", "")
 
 
@@ -122,13 +282,7 @@ def search_files_by_name(
     query: str,
     vector_store: Optional[VectorStore] = None
 ) -> List[Dict]:
-    """
-    Search indexed files by name/path pattern.
-
-    Returns list of files whose path contains any query term.
-    Handles camelCase like "incyteHS" -> searches for "incyte" and "hs".
-    Also handles concatenated terms like "incytehs" matching "Incyte HS".
-    """
+    """Search indexed files by name/path pattern."""
     if vector_store is None:
         vector_store = VectorStore()
 
@@ -168,29 +322,33 @@ def _format_search_results(results: List[Dict]) -> List[Dict]:
 def search_documents(
     query: str,
     vector_store: Optional[VectorStore] = None,
-    n_results: int = 10
+    n_results: int = 10,
+    use_reranking: bool = True,
 ) -> List[Dict]:
     """
     Search indexed documents for content matching the query.
 
-    When a specific filename is mentioned, searches ONLY within that file.
-    When company hints are detected, searches only within matching files.
-    Otherwise, searches across all documents.
+    Uses hybrid search (vector + BM25) and optional reranking.
     """
     if vector_store is None:
         vector_store = VectorStore()
 
+    config = get_config()
     indexed_files = vector_store.get_indexed_files()
 
     exact_file = _extract_exact_filename(query, indexed_files)
     if exact_file:
-        query_embedding = generate_embedding(query)
-        results = vector_store.search_with_filter(
-            query_embedding,
-            n_results=n_results,
-            file_paths=[exact_file]
+        results = hybrid_search(
+            query,
+            vector_store,
+            n_results=config.initial_results,
+            file_paths=[exact_file],
         )
-        return _format_search_results(results)
+        formatted = _format_search_results(results)
+
+        if use_reranking:
+            return rerank_results(query, formatted, top_n=n_results)
+        return formatted[:n_results]
 
     file_hints, is_protocol_query = _extract_file_hints(query)
     if file_hints:
@@ -198,17 +356,28 @@ def search_documents(
             vector_store, file_hints, is_protocol_query
         )
         if hint_matching_files:
-            query_embedding = generate_embedding(query)
-            results = vector_store.search_with_filter(
-                query_embedding,
-                n_results=n_results,
-                file_paths=list(hint_matching_files)
+            results = hybrid_search(
+                query,
+                vector_store,
+                n_results=config.initial_results,
+                file_paths=list(hint_matching_files),
             )
-            return _format_search_results(results)
+            formatted = _format_search_results(results)
 
-    query_embedding = generate_embedding(query)
-    results = vector_store.search(query_embedding, n_results=n_results)
-    return _format_search_results(results)
+            if use_reranking:
+                return rerank_results(query, formatted, top_n=n_results)
+            return formatted[:n_results]
+
+    results = hybrid_search(
+        query,
+        vector_store,
+        n_results=config.initial_results,
+    )
+    formatted = _format_search_results(results)
+
+    if use_reranking:
+        return rerank_results(query, formatted, top_n=n_results)
+    return formatted[:n_results]
 
 
 def _merge_and_dedupe(
@@ -247,7 +416,7 @@ def _get_hint_matching_files(
     file_hints: List[str],
     is_protocol_query: bool
 ) -> set[str]:
-    """Get files matching the file hints, prioritizing protocol files if requested."""
+    """Get files matching the file hints."""
     all_files = vector_store.get_indexed_files()
     hint_matching_files = set()
 
@@ -269,12 +438,7 @@ def _expand_to_adjacent_pages(
     relevant_files: set[str],
     expansion_range: int = 2
 ) -> List[Dict]:
-    """
-    Expand results to include adjacent pages from the same file.
-
-    This helps capture content that spans multiple pages, like inclusion/exclusion
-    criteria sections that may span pages 26-28.
-    """
+    """Expand results to include adjacent pages from the same file."""
     expanded = list(results)
     seen_ids = set()
 
@@ -320,21 +484,20 @@ def get_context_for_query(
     Get formatted context string for RAG prompt.
 
     Combines semantic search with keyword-based search for section headers.
-    When file hints are present, keyword search is expanded to ALL files
-    matching the hints, not just files from semantic search results.
-    Also expands to adjacent pages to capture content spanning multiple pages.
+    Uses hybrid search and reranking for better results.
     """
     if vector_store is None:
         vector_store = VectorStore()
 
     query_lower = query.lower()
+    config = get_config()
 
     matching_section_count = sum(1 for kw in SECTION_KEYWORDS if kw in query_lower)
     if matching_section_count > 1:
         n_results = max(n_results, matching_section_count * 5)
 
     file_hints, is_protocol_query = _extract_file_hints(query)
-    results = search_documents(query, vector_store, n_results)
+    results = search_documents(query, vector_store, n_results=config.rerank_to, use_reranking=True)
 
     if file_hints:
         hint_matching_files = _get_hint_matching_files(
@@ -381,7 +544,7 @@ def get_context_for_query(
         return "No relevant documents found."
 
     results.sort(key=lambda r: (
-        -r.get('relevance_score', 0),
+        -r.get('relevance_score', r.get('rerank_score', 0)),
         r.get('file_path', ''),
         r.get('slide_number', 0),
         r.get('chunk_index', 0)
@@ -403,9 +566,7 @@ def get_unique_files_for_query(
     vector_store: Optional[VectorStore] = None,
     n_results: int = 10
 ) -> List[Dict]:
-    """
-    Get unique files that match a query, with best matching excerpt from each.
-    """
+    """Get unique files that match a query, with best matching excerpt from each."""
     results = search_documents(query, vector_store, n_results)
 
     seen_files = {}

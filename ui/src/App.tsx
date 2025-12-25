@@ -4,20 +4,9 @@ import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { checkHealth } from './api/client'
 import { AlertCircle, Loader2 } from 'lucide-react'
 
-const DEFAULT_MODEL = 'llama3.1:8b'
-const MODEL_STORAGE_KEY = 'finderai-selected-model'
-
 function App() {
   const [backendStatus, setBackendStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [ollamaReady, setOllamaReady] = useState(false)
-  const [selectedModel, setSelectedModel] = useState(() => {
-    return localStorage.getItem(MODEL_STORAGE_KEY) || DEFAULT_MODEL
-  })
-
-  const handleModelChange = (model: string) => {
-    setSelectedModel(model)
-    localStorage.setItem(MODEL_STORAGE_KEY, model)
-  }
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -67,14 +56,14 @@ function App() {
   return (
     <div className="h-full flex flex-col bg-white">
       {!ollamaReady && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm text-yellow-800 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          Ollama not detected. Make sure Ollama is running for chat functionality.
+        <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 no-drag" />
+          <span className="no-drag">Ollama not detected. Make sure Ollama is running for chat functionality.</span>
         </div>
       )}
-      <SettingsPanel model={selectedModel} onModelChange={handleModelChange} />
+      <SettingsPanel />
       <div className="flex-1 overflow-hidden">
-        <ChatContainer model={selectedModel} />
+        <ChatContainer />
       </div>
     </div>
   )

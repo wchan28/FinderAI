@@ -12,9 +12,10 @@ from backend.extractors.pdf_extractor import extract_text_from_pdf
 from backend.extractors.docx_extractor import extract_text_from_docx
 from backend.extractors.xlsx_extractor import extract_text_from_xlsx
 from backend.indexer.chunker import chunk_document, get_chunk_params
-from backend.indexer.embedder import generate_embeddings
+from backend.indexer.embedder import generate_embeddings, get_embedding_dimension
 from backend.db.vector_store import VectorStore
 from backend.db.metadata_store import MetadataStore, compute_file_hash
+from backend.search.bm25_index import get_bm25_index
 
 
 SUPPORTED_EXTENSIONS = {".pptx", ".pdf", ".docx", ".xlsx"}
@@ -242,6 +243,13 @@ def _process_single_file(
         with db_lock:
             vector_store.add_chunks(chunks, embeddings)
             metadata_store.set_file_hash(file_path, current_hash, len(chunks))
+
+            bm25_index = get_bm25_index()
+            chunk_ids = [
+                f"{c['file_path']}::slide{c['slide_number']}::chunk{c['chunk_index']}"
+                for c in chunks
+            ]
+            bm25_index.add_documents(chunk_ids, texts)
         result["store_time"] = time.time() - start_store
 
         result["chunks"] = len(chunks)
@@ -278,7 +286,8 @@ def index_folder(
         Dict with indexing statistics
     """
     if vector_store is None:
-        vector_store = VectorStore()
+        expected_dim = get_embedding_dimension()
+        vector_store = VectorStore(expected_dimension=expected_dim)
     if metadata_store is None:
         metadata_store = MetadataStore()
 
@@ -408,7 +417,8 @@ def reindex_files(
         Dict with indexing statistics
     """
     if vector_store is None:
-        vector_store = VectorStore()
+        expected_dim = get_embedding_dimension()
+        vector_store = VectorStore(expected_dimension=expected_dim)
     if metadata_store is None:
         metadata_store = MetadataStore()
 
