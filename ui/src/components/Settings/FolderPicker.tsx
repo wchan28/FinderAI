@@ -1,29 +1,29 @@
-import { useState } from 'react'
-import { FolderOpen } from 'lucide-react'
+import { useState } from "react";
+import { FolderOpen } from "lucide-react";
 
 interface FolderPickerProps {
-  onSelect: (folder: string) => void
-  disabled?: boolean
+  onSelect: (folder: string) => void;
+  disabled?: boolean;
 }
 
 export function FolderPicker({ onSelect, disabled }: FolderPickerProps) {
-  const [folder, setFolder] = useState('')
+  const [folder, setFolder] = useState("");
 
   const handleBrowse = async () => {
     if (window.electronAPI) {
-      const selected = await window.electronAPI.selectFolder()
+      const selected = await window.electronAPI.selectFolder();
       if (selected) {
-        setFolder(selected)
-        onSelect(selected)
+        setFolder(selected);
+        onSelect(selected);
       }
     } else {
-      const path = prompt('Enter folder path:')
+      const path = prompt("Enter folder path:");
       if (path) {
-        setFolder(path)
-        onSelect(path)
+        setFolder(path);
+        onSelect(path);
       }
     }
-  }
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -31,8 +31,8 @@ export function FolderPicker({ onSelect, disabled }: FolderPickerProps) {
         type="text"
         value={folder}
         onChange={(e) => {
-          setFolder(e.target.value)
-          onSelect(e.target.value)
+          setFolder(e.target.value);
+          onSelect(e.target.value);
         }}
         placeholder="Select a folder to index..."
         className="flex-1 px-3 py-2 border rounded-lg text-sm bg-white"
@@ -46,5 +46,5 @@ export function FolderPicker({ onSelect, disabled }: FolderPickerProps) {
         <FolderOpen className="w-5 h-5 text-gray-600" />
       </button>
     </div>
-  )
+  );
 }

@@ -1,17 +1,17 @@
-import { useEffect, useRef } from 'react'
-import { MessageBubble } from './MessageBubble'
-import type { Message } from '../../hooks/useChat'
+import { useEffect, useRef } from "react";
+import { MessageBubble } from "./MessageBubble";
+import type { Message } from "../../hooks/useChat";
 
 interface MessageListProps {
-  messages: Message[]
+  messages: Message[];
 }
 
 export function MessageList({ messages }: MessageListProps) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   if (messages.length === 0) {
     return (
@@ -21,7 +21,7 @@ export function MessageList({ messages }: MessageListProps) {
           <p className="text-sm mt-1">Ask questions about your indexed files</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -33,5 +33,5 @@ export function MessageList({ messages }: MessageListProps) {
         <div ref={bottomRef} />
       </div>
     </div>
-  )
+  );
 }

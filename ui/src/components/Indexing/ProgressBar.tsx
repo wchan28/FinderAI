@@ -1,21 +1,21 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect } from "react";
 
 interface ProgressBarProps {
-  messages: string[]
-  isActive: boolean
+  messages: string[];
+  isActive: boolean;
 }
 
 export function ProgressBar({ messages, isActive }: ProgressBarProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [messages])
+  }, [messages]);
 
   if (messages.length === 0 && !isActive) {
-    return null
+    return null;
   }
 
   return (
@@ -25,7 +25,7 @@ export function ProgressBar({ messages, isActive }: ProgressBarProps) {
           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         )}
         <span className="text-sm font-medium text-gray-700">
-          {isActive ? 'Indexing in progress...' : 'Indexing complete'}
+          {isActive ? "Indexing in progress..." : "Indexing complete"}
         </span>
       </div>
 
@@ -34,9 +34,11 @@ export function ProgressBar({ messages, isActive }: ProgressBarProps) {
         className="bg-gray-900 text-green-400 font-mono text-xs p-3 rounded-lg max-h-48 overflow-y-auto"
       >
         {messages.map((msg, i) => (
-          <div key={i} className="py-0.5">{msg}</div>
+          <div key={i} className="py-0.5">
+            {msg}
+          </div>
         ))}
       </div>
     </div>
-  )
+  );
 }

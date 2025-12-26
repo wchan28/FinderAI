@@ -1,21 +1,24 @@
-import ReactMarkdown from 'react-markdown'
-import { FileText, User } from 'lucide-react'
-import type { Message } from '../../hooks/useChat'
-import { ThinkingIndicator } from './ThinkingIndicator'
+import ReactMarkdown from "react-markdown";
+import { FileText, User } from "lucide-react";
+import type { Message } from "../../hooks/useChat";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 
 interface MessageBubbleProps {
-  message: Message
+  message: Message;
 }
 
 export function MessageBubble({ message }: MessageBubbleProps) {
-  const isUser = message.role === 'user'
-  const showThinkingIndicator = message.isStreaming && !message.content && message.status
+  const isUser = message.role === "user";
+  const showThinkingIndicator =
+    message.isStreaming && !message.content && message.status;
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-        isUser ? 'bg-blue-500' : 'bg-gray-700'
-      }`}>
+    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+      <div
+        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+          isUser ? "bg-blue-500" : "bg-gray-700"
+        }`}
+      >
         {isUser ? (
           <User className="w-5 h-5 text-white" />
         ) : (
@@ -23,19 +26,19 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
       </div>
 
-      <div className={`flex-1 max-w-[80%] ${isUser ? 'text-right' : ''}`}>
-        <div className={`inline-block rounded-2xl px-4 py-3 ${
-          isUser
-            ? 'bg-blue-500 text-white'
-            : 'bg-gray-100 text-gray-900'
-        }`}>
+      <div className={`flex-1 max-w-[80%] ${isUser ? "text-right" : ""}`}>
+        <div
+          className={`inline-block rounded-2xl px-4 py-3 ${
+            isUser ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+          }`}
+        >
           {isUser ? (
             <p className="whitespace-pre-wrap">{message.content}</p>
           ) : showThinkingIndicator ? (
             <ThinkingIndicator status={message.status ?? null} />
           ) : (
             <div className="prose prose-sm max-w-none prose-ul:list-disc prose-ul:pl-4 prose-li:my-0.5 prose-p:my-1 prose-strong:font-semibold">
-              <ReactMarkdown>{message.content || '...'}</ReactMarkdown>
+              <ReactMarkdown>{message.content || "..."}</ReactMarkdown>
             </div>
           )}
 
@@ -66,5 +69,5 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

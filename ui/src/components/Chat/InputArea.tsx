@@ -1,30 +1,35 @@
-import { useState, useCallback, KeyboardEvent } from 'react'
-import { Send, StopCircle } from 'lucide-react'
+import { useState, useCallback, KeyboardEvent } from "react";
+import { Send, StopCircle } from "lucide-react";
 
 interface InputAreaProps {
-  onSend: (message: string) => void
-  onStop?: () => void
-  disabled?: boolean
-  isLoading?: boolean
+  onSend: (message: string) => void;
+  onStop?: () => void;
+  disabled?: boolean;
+  isLoading?: boolean;
 }
 
-export function InputArea({ onSend, onStop, disabled, isLoading }: InputAreaProps) {
-  const [input, setInput] = useState('')
+export function InputArea({
+  onSend,
+  onStop,
+  disabled,
+  isLoading,
+}: InputAreaProps) {
+  const [input, setInput] = useState("");
 
   const handleSend = useCallback(() => {
-    const trimmed = input.trim()
+    const trimmed = input.trim();
     if (trimmed && !disabled) {
-      onSend(trimmed)
-      setInput('')
+      onSend(trimmed);
+      setInput("");
     }
-  }, [input, disabled, onSend])
+  }, [input, disabled, onSend]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-  }
+  };
 
   return (
     <div className="border-t bg-white px-4 py-4">
@@ -62,5 +67,5 @@ export function InputArea({ onSend, onStop, disabled, isLoading }: InputAreaProp
         </p>
       </div>
     </div>
-  )
+  );
 }
