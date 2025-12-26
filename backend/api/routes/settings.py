@@ -23,7 +23,6 @@ from backend.providers.config import (
 from backend.providers.llm.openai import OPENAI_MODELS
 from backend.providers.llm.google import GOOGLE_MODELS
 from backend.providers.embedding.openai import OPENAI_EMBEDDING_MODELS
-from backend.providers.embedding.ollama import OLLAMA_EMBEDDING_MODELS
 from backend.providers.embedding.cohere import COHERE_EMBEDDING_MODELS
 from backend.providers.embedding.voyage import VOYAGE_EMBEDDING_MODELS
 from backend.providers.reranking.cohere import COHERE_RERANK_MODELS
@@ -209,7 +208,6 @@ async def get_available_providers():
             "voyage": VOYAGE_EMBEDDING_MODELS,
             "cohere": COHERE_EMBEDDING_MODELS,
             "openai": OPENAI_EMBEDDING_MODELS,
-            "ollama": OLLAMA_EMBEDDING_MODELS,
         },
         reranking_providers=COHERE_RERANK_MODELS + ["cross_encoder", "llm", "none"],
     )

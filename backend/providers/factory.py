@@ -11,7 +11,6 @@ from backend.providers.llm.openai import OpenAILLMProvider
 from backend.providers.llm.google import GoogleLLMProvider
 from backend.providers.embedding.base import BaseEmbeddingProvider
 from backend.providers.embedding.cohere import CohereEmbeddingProvider
-from backend.providers.embedding.ollama import OllamaEmbeddingProvider
 from backend.providers.embedding.openai import OpenAIEmbeddingProvider
 from backend.providers.embedding.voyage import VoyageEmbeddingProvider
 from backend.providers.reranking.base import BaseRerankingProvider
@@ -61,6 +60,14 @@ def get_llm_provider(
         return OllamaLLMProvider(model=model_name)
 
 
+class EmbeddingProviderNotConfiguredError(Exception):
+    """Raised when the embedding provider is not configured with required API key."""
+
+    def __init__(self, provider: str):
+        self.provider = provider
+        super().__init__(f"Embedding provider '{provider}' requires an API key. Please configure it in settings.")
+
+
 def get_embedding_provider(
     config: Optional[ProviderConfig] = None,
     provider: Optional[str] = None,
@@ -76,6 +83,9 @@ def get_embedding_provider(
 
     Returns:
         An embedding provider instance
+
+    Raises:
+        EmbeddingProviderNotConfiguredError: If the provider requires an API key that is not set
     """
     if config is None:
         config = get_config()
@@ -83,7 +93,6 @@ def get_embedding_provider(
     provider_name = provider or config.embedding_provider
     model_name = model or config.embedding_model
 
-    # Validate model matches provider - auto-correct stale config
     if provider_name == "voyage" and not model_name.startswith("voyage"):
         model_name = "voyage-3-large"
     elif provider_name == "openai" and not model_name.startswith("text-embedding"):
@@ -93,27 +102,27 @@ def get_embedding_provider(
 
     if provider_name == "voyage":
         if not config.voyage_api_key:
-            return OllamaEmbeddingProvider(model="nomic-embed-text")
+            raise EmbeddingProviderNotConfiguredError("voyage")
         return VoyageEmbeddingProvider(
             api_key=config.voyage_api_key,
             model=model_name,
         )
     elif provider_name == "cohere":
         if not config.cohere_api_key:
-            return OllamaEmbeddingProvider(model="nomic-embed-text")
+            raise EmbeddingProviderNotConfiguredError("cohere")
         return CohereEmbeddingProvider(
             api_key=config.cohere_api_key,
             model=model_name,
         )
     elif provider_name == "openai":
         if not config.openai_api_key:
-            return OllamaEmbeddingProvider(model="nomic-embed-text")
+            raise EmbeddingProviderNotConfiguredError("openai")
         return OpenAIEmbeddingProvider(
             api_key=config.openai_api_key,
             model=model_name,
         )
     else:
-        return OllamaEmbeddingProvider(model=model_name)
+        raise EmbeddingProviderNotConfiguredError(provider_name)
 
 
 def get_reranking_provider(

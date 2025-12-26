@@ -1,5 +1,16 @@
-import { useState, useEffect } from 'react'
-import { Key, Eye, EyeOff, Check, X, Loader2, Brain, Search, Sparkles } from 'lucide-react'
+import { useState, useEffect } from "react";
+import {
+  Key,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+  Loader2,
+  Brain,
+  Search,
+  Sparkles,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import {
   getSettings,
   updateSettings,
@@ -8,41 +19,41 @@ import {
   getProviderModels,
   type Settings,
   type ProviderModels,
-} from '../../api/client'
+} from "../../api/client";
 
 type APIKeyInputProps = {
-  label: string
-  hasKey: boolean
-  onSave: (key: string) => Promise<void>
-  onDelete: () => Promise<void>
-}
+  label: string;
+  hasKey: boolean;
+  onSave: (key: string) => Promise<void>;
+  onDelete: () => Promise<void>;
+};
 
 function APIKeyInput({ label, hasKey, onSave, onDelete }: APIKeyInputProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [value, setValue] = useState('')
-  const [showKey, setShowKey] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!value.trim()) return
-    setSaving(true)
+    if (!value.trim()) return;
+    setSaving(true);
     try {
-      await onSave(value.trim())
-      setValue('')
-      setIsEditing(false)
+      await onSave(value.trim());
+      setValue("");
+      setIsEditing(false);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
-      await onDelete()
+      await onDelete();
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   if (!isEditing && hasKey) {
     return (
@@ -60,10 +71,10 @@ function APIKeyInput({ label, hasKey, onSave, onDelete }: APIKeyInputProps) {
           disabled={saving}
           className="text-xs text-red-500 hover:text-red-600"
         >
-          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remove'}
+          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Remove"}
         </button>
       </div>
-    )
+    );
   }
 
   if (!isEditing) {
@@ -75,14 +86,14 @@ function APIKeyInput({ label, hasKey, onSave, onDelete }: APIKeyInputProps) {
         <Key className="w-4 h-4" />
         Add {label}
       </button>
-    )
+    );
   }
 
   return (
     <div className="flex items-center gap-2">
       <div className="relative flex-1">
         <input
-          type={showKey ? 'text' : 'password'}
+          type={showKey ? "text" : "password"}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={`Enter ${label}`}
@@ -93,7 +104,11 @@ function APIKeyInput({ label, hasKey, onSave, onDelete }: APIKeyInputProps) {
           onClick={() => setShowKey(!showKey)}
           className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
         >
-          {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          {showKey ? (
+            <EyeOff className="w-4 h-4" />
+          ) : (
+            <Eye className="w-4 h-4" />
+          )}
         </button>
       </div>
       <button
@@ -101,75 +116,86 @@ function APIKeyInput({ label, hasKey, onSave, onDelete }: APIKeyInputProps) {
         disabled={!value.trim() || saving}
         className="p-1.5 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
       >
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+        {saving ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Check className="w-4 h-4" />
+        )}
       </button>
       <button
         onClick={() => {
-          setIsEditing(false)
-          setValue('')
+          setIsEditing(false);
+          setValue("");
         }}
         className="p-1.5 text-gray-400 hover:bg-gray-50 rounded"
       >
         <X className="w-4 h-4" />
       </button>
     </div>
-  )
+  );
 }
 
-export function ProviderSettings() {
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [providers, setProviders] = useState<ProviderModels | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+type ProviderSettingsProps = {
+  onRunSetup?: () => void;
+};
+
+export function ProviderSettings({ onRunSetup }: ProviderSettingsProps) {
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [providers, setProviders] = useState<ProviderModels | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     try {
       const [settingsData, providersData] = await Promise.all([
         getSettings(),
         getProviderModels(),
-      ])
-      setSettings(settingsData)
-      setProviders(providersData)
+      ]);
+      setSettings(settingsData);
+      setProviders(providersData);
     } catch (error) {
-      console.error('Failed to load settings:', error)
+      console.error("Failed to load settings:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadData()
-  }, [])
+    loadData();
+  }, []);
 
-  const handleSettingChange = async (key: keyof Settings, value: string | boolean | number) => {
-    if (!settings) return
-    setSaving(true)
+  const handleSettingChange = async (
+    key: keyof Settings,
+    value: string | boolean | number,
+  ) => {
+    if (!settings) return;
+    setSaving(true);
     try {
-      const updated = await updateSettings({ [key]: value })
-      setSettings(updated)
+      const updated = await updateSettings({ [key]: value });
+      setSettings(updated);
     } catch (error) {
-      console.error('Failed to update setting:', error)
+      console.error("Failed to update setting:", error);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleSaveApiKey = async (provider: string, key: string) => {
-    await saveApiKey(provider, key)
-    await loadData()
-  }
+    await saveApiKey(provider, key);
+    await loadData();
+  };
 
   const handleDeleteApiKey = async (provider: string) => {
-    await deleteApiKey(provider)
-    await loadData()
-  }
+    await deleteApiKey(provider);
+    await loadData();
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
       </div>
-    )
+    );
   }
 
   if (!settings || !providers) {
@@ -177,43 +203,55 @@ export function ProviderSettings() {
       <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm">
         Failed to load settings. Make sure the backend is running.
       </div>
-    )
+    );
   }
 
-  const llmModels = providers.llm_providers[settings.llm_provider] || []
-  const embeddingModels = providers.embedding_providers[settings.embedding_provider] || []
+  const llmModels = providers.llm_providers[settings.llm_provider] || [];
+  const embeddingModels =
+    providers.embedding_providers[settings.embedding_provider] || [];
 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-          <Key className="w-4 h-4" />
-          API Keys
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            API Keys
+          </h4>
+          {onRunSetup && (
+            <button
+              onClick={onRunSetup}
+              className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-600"
+            >
+              <SettingsIcon className="w-3.5 h-3.5" />
+              Run Setup Wizard
+            </button>
+          )}
+        </div>
         <div className="space-y-2 pl-6">
           <APIKeyInput
             label="OpenAI API Key"
             hasKey={settings.has_openai_key}
-            onSave={(key) => handleSaveApiKey('openai', key)}
-            onDelete={() => handleDeleteApiKey('openai')}
+            onSave={(key) => handleSaveApiKey("openai", key)}
+            onDelete={() => handleDeleteApiKey("openai")}
           />
           <APIKeyInput
             label="Google API Key"
             hasKey={settings.has_google_key}
-            onSave={(key) => handleSaveApiKey('google', key)}
-            onDelete={() => handleDeleteApiKey('google')}
+            onSave={(key) => handleSaveApiKey("google", key)}
+            onDelete={() => handleDeleteApiKey("google")}
           />
           <APIKeyInput
             label="Cohere API Key"
             hasKey={settings.has_cohere_key}
-            onSave={(key) => handleSaveApiKey('cohere', key)}
-            onDelete={() => handleDeleteApiKey('cohere')}
+            onSave={(key) => handleSaveApiKey("cohere", key)}
+            onDelete={() => handleDeleteApiKey("cohere")}
           />
           <APIKeyInput
             label="Voyage AI API Key"
             hasKey={settings.has_voyage_key}
-            onSave={(key) => handleSaveApiKey('voyage', key)}
-            onDelete={() => handleDeleteApiKey('voyage')}
+            onSave={(key) => handleSaveApiKey("voyage", key)}
+            onDelete={() => handleDeleteApiKey("voyage")}
           />
         </div>
       </div>
@@ -228,7 +266,9 @@ export function ProviderSettings() {
             <label className="block text-xs text-gray-500 mb-1">Provider</label>
             <select
               value={settings.llm_provider}
-              onChange={(e) => handleSettingChange('llm_provider', e.target.value)}
+              onChange={(e) =>
+                handleSettingChange("llm_provider", e.target.value)
+              }
               disabled={saving}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
             >
@@ -243,7 +283,7 @@ export function ProviderSettings() {
             <label className="block text-xs text-gray-500 mb-1">Model</label>
             <select
               value={settings.llm_model}
-              onChange={(e) => handleSettingChange('llm_model', e.target.value)}
+              onChange={(e) => handleSettingChange("llm_model", e.target.value)}
               disabled={saving || llmModels.length === 0}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
             >
@@ -267,7 +307,9 @@ export function ProviderSettings() {
             <label className="block text-xs text-gray-500 mb-1">Provider</label>
             <select
               value={settings.embedding_provider}
-              onChange={(e) => handleSettingChange('embedding_provider', e.target.value)}
+              onChange={(e) =>
+                handleSettingChange("embedding_provider", e.target.value)
+              }
               disabled={saving}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
             >
@@ -282,7 +324,9 @@ export function ProviderSettings() {
             <label className="block text-xs text-gray-500 mb-1">Model</label>
             <select
               value={settings.embedding_model}
-              onChange={(e) => handleSettingChange('embedding_model', e.target.value)}
+              onChange={(e) =>
+                handleSettingChange("embedding_model", e.target.value)
+              }
               disabled={saving || embeddingModels.length === 0}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
             >
@@ -309,7 +353,9 @@ export function ProviderSettings() {
             <input
               type="checkbox"
               checked={settings.hybrid_search_enabled}
-              onChange={(e) => handleSettingChange('hybrid_search_enabled', e.target.checked)}
+              onChange={(e) =>
+                handleSettingChange("hybrid_search_enabled", e.target.checked)
+              }
               disabled={saving}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
@@ -320,32 +366,44 @@ export function ProviderSettings() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Reranking Provider</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Reranking Provider
+              </label>
               <select
                 value={settings.reranking_provider}
-                onChange={(e) => handleSettingChange('reranking_provider', e.target.value)}
+                onChange={(e) =>
+                  handleSettingChange("reranking_provider", e.target.value)
+                }
                 disabled={saving}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
               >
                 {providers.reranking_providers.map((provider) => (
                   <option key={provider} value={provider}>
-                    {provider === 'none' ? 'None (disabled)' :
-                     provider === 'cross_encoder' ? 'Cross-Encoder (free, local)' :
-                     provider === 'llm' ? 'LLM-based' :
-                     provider.charAt(0).toUpperCase() + provider.slice(1)}
+                    {provider === "none"
+                      ? "None (disabled)"
+                      : provider === "cross_encoder"
+                        ? "Cross-Encoder (free, local)"
+                        : provider === "llm"
+                          ? "LLM-based"
+                          : provider.charAt(0).toUpperCase() +
+                            provider.slice(1)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Rerank Top-N</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Rerank Top-N
+              </label>
               <input
                 type="number"
                 min={3}
                 max={20}
                 value={settings.rerank_to}
-                onChange={(e) => handleSettingChange('rerank_to', parseInt(e.target.value, 10))}
-                disabled={saving || settings.reranking_provider === 'none'}
+                onChange={(e) =>
+                  handleSettingChange("rerank_to", parseInt(e.target.value, 10))
+                }
+                disabled={saving || settings.reranking_provider === "none"}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
               />
             </div>
@@ -361,7 +419,12 @@ export function ProviderSettings() {
               max={100}
               step={10}
               value={settings.initial_results}
-              onChange={(e) => handleSettingChange('initial_results', parseInt(e.target.value, 10))}
+              onChange={(e) =>
+                handleSettingChange(
+                  "initial_results",
+                  parseInt(e.target.value, 10),
+                )
+              }
               disabled={saving}
               className="w-full"
             />
@@ -379,5 +442,5 @@ export function ProviderSettings() {
         </div>
       )}
     </div>
-  )
+  );
 }

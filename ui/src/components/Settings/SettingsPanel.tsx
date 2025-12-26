@@ -1,32 +1,53 @@
-import { useState, useEffect } from 'react'
-import { Settings, ChevronDown, ChevronUp, Database, FileText, RefreshCw, Sliders } from 'lucide-react'
-import { FolderPicker } from './FolderPicker'
-import { ProgressBar } from '../Indexing/ProgressBar'
-import { ProviderSettings } from './ProviderSettings'
-import { useIndexing } from '../../hooks/useIndexing'
+import { useState, useEffect } from "react";
+import {
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  FileText,
+  RefreshCw,
+  Sliders,
+} from "lucide-react";
+import { FolderPicker } from "./FolderPicker";
+import { ProgressBar } from "../Indexing/ProgressBar";
+import { ProviderSettings } from "./ProviderSettings";
+import { useIndexing } from "../../hooks/useIndexing";
 
-type Tab = 'indexing' | 'providers'
+type Tab = "indexing" | "providers";
 
-export function SettingsPanel() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>('indexing')
-  const [folder, setFolder] = useState('')
-  const [maxChunks, setMaxChunks] = useState(50)
-  const { isIndexing, progress, stats, status, error, startIndexing, reindexAll, refreshStatus } = useIndexing()
+type SettingsPanelProps = {
+  onRunSetup?: () => void;
+};
+
+export function SettingsPanel({ onRunSetup }: SettingsPanelProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("indexing");
+  const [folder, setFolder] = useState("");
+  const [maxChunks, setMaxChunks] = useState(50);
+  const {
+    isIndexing,
+    progress,
+    stats,
+    status,
+    error,
+    startIndexing,
+    reindexAll,
+    refreshStatus,
+  } = useIndexing();
 
   useEffect(() => {
-    refreshStatus()
-  }, [refreshStatus])
+    refreshStatus();
+  }, [refreshStatus]);
 
   const handleIndex = () => {
     if (folder) {
-      startIndexing(folder, maxChunks)
+      startIndexing(folder, maxChunks);
     }
-  }
+  };
 
   const handleReindex = () => {
-    reindexAll(maxChunks)
-  }
+    reindexAll(maxChunks);
+  };
 
   return (
     <div className="border-b bg-white">
@@ -56,11 +77,11 @@ export function SettingsPanel() {
         <div className="px-4 pb-4 space-y-4">
           <div className="flex border-b border-gray-200">
             <button
-              onClick={() => setActiveTab('indexing')}
+              onClick={() => setActiveTab("indexing")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'indexing'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === "indexing"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               <span className="flex items-center gap-2">
@@ -69,11 +90,11 @@ export function SettingsPanel() {
               </span>
             </button>
             <button
-              onClick={() => setActiveTab('providers')}
+              onClick={() => setActiveTab("providers")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'providers'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === "providers"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               <span className="flex items-center gap-2">
@@ -83,9 +104,11 @@ export function SettingsPanel() {
             </button>
           </div>
 
-          {activeTab === 'providers' && <ProviderSettings />}
+          {activeTab === "providers" && (
+            <ProviderSettings onRunSetup={onRunSetup} />
+          )}
 
-          {activeTab === 'indexing' && (
+          {activeTab === "indexing" && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -109,7 +132,8 @@ export function SettingsPanel() {
                   className="w-full"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Higher = more content indexed, but slower. Start with 50, increase if needed.
+                  Higher = more content indexed, but slower. Start with 50,
+                  increase if needed.
                 </p>
               </div>
 
@@ -120,7 +144,7 @@ export function SettingsPanel() {
                   className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   <Database className="w-4 h-4" />
-                  {isIndexing ? 'Indexing...' : 'Index Folder'}
+                  {isIndexing ? "Indexing..." : "Index Folder"}
                 </button>
                 <button
                   onClick={handleReindex}
@@ -152,7 +176,8 @@ export function SettingsPanel() {
               {stats && !isIndexing && stats.skipped_files?.length > 0 && (
                 <div className="p-3 bg-amber-50 text-amber-800 text-sm rounded-lg">
                   <p className="font-medium mb-2">
-                    {stats.skipped_files.length} file(s) skipped (exceeded {maxChunks} chunk limit)
+                    {stats.skipped_files.length} file(s) skipped (exceeded{" "}
+                    {maxChunks} chunk limit)
                   </p>
                   <div className="max-h-32 overflow-y-auto space-y-1">
                     {stats.skipped_files.map((file, i) => (
@@ -177,17 +202,22 @@ export function SettingsPanel() {
                   </p>
                   <div className="max-h-32 overflow-y-auto space-y-1">
                     {stats.errors.map((err, i) => {
-                      const match = err.match(/Error indexing .*\/(.+?): (.+)/)
-                      const fileName = match ? match[1] : 'Unknown file'
-                      const reason = match ? match[2] : err
+                      const match = err.match(/Error indexing .*\/(.+?): (.+)/);
+                      const fileName = match ? match[1] : "Unknown file";
+                      const reason = match ? match[2] : err;
                       return (
                         <div key={i} className="text-xs">
                           <span className="font-medium">{fileName}</span>
-                          <span className="text-red-600 ml-1 block truncate" title={reason}>
-                            {reason.length > 60 ? reason.slice(0, 60) + '...' : reason}
+                          <span
+                            className="text-red-600 ml-1 block truncate"
+                            title={reason}
+                          >
+                            {reason.length > 60
+                              ? reason.slice(0, 60) + "..."
+                              : reason}
                           </span>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </div>
@@ -201,9 +231,16 @@ export function SettingsPanel() {
                   </h4>
                   <div className="max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-2">
                     {status.files.slice(0, 20).map((file, i) => (
-                      <div key={i} className="text-xs py-1 flex justify-between">
-                        <span className="text-gray-700 truncate">{file.file_name}</span>
-                        <span className="text-gray-400 ml-2">{file.chunk_count} chunks</span>
+                      <div
+                        key={i}
+                        className="text-xs py-1 flex justify-between"
+                      >
+                        <span className="text-gray-700 truncate">
+                          {file.file_name}
+                        </span>
+                        <span className="text-gray-400 ml-2">
+                          {file.chunk_count} chunks
+                        </span>
                       </div>
                     ))}
                     {status.files.length > 20 && (
@@ -219,5 +256,5 @@ export function SettingsPanel() {
         </div>
       )}
     </div>
-  )
+  );
 }

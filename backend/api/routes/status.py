@@ -25,8 +25,9 @@ class StatusResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    ollama: bool
-    embedding_model: bool
+    embedding_ready: bool
+    llm_ready: bool
+    needs_setup: bool
 
 
 class ModelInfo(BaseModel):
@@ -63,9 +64,6 @@ async def get_status():
     )
 
 
-EMBEDDING_MODELS = {"nomic-embed-text", "mxbai-embed-large", "all-minilm"}
-
-
 def _format_size(size_bytes: int) -> str:
     """Format bytes to human readable size."""
     if size_bytes >= 1e9:
@@ -83,27 +81,49 @@ def _format_model_label(name: str, size_bytes: int) -> str:
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Check if backend and Ollama are ready."""
-    ollama_ok = False
-    embedding_model_ok = False
-    try:
-        import ollama
-        from backend.indexer.embedder import EMBEDDING_MODEL
+    """Check if backend and providers are ready."""
+    from backend.providers.config import get_config
 
-        models_response = ollama.list()
-        ollama_ok = True
+    config = get_config()
 
-        model_names = [m.model.split(":")[0] for m in models_response.models]
-        embedding_model_ok = EMBEDDING_MODEL in model_names
-    except Exception:
-        pass
+    embedding_ready = False
+    llm_ready = False
 
-    return HealthResponse(status="ok", ollama=ollama_ok, embedding_model=embedding_model_ok)
+    if config.embedding_provider == "voyage":
+        embedding_ready = bool(config.voyage_api_key)
+    elif config.embedding_provider == "cohere":
+        embedding_ready = bool(config.cohere_api_key)
+    elif config.embedding_provider == "openai":
+        embedding_ready = bool(config.openai_api_key)
+
+    if config.llm_provider == "openai":
+        llm_ready = bool(config.openai_api_key)
+    elif config.llm_provider == "google":
+        llm_ready = bool(config.google_api_key)
+    elif config.llm_provider == "ollama":
+        try:
+            import ollama
+            ollama.list()
+            llm_ready = True
+        except Exception:
+            llm_ready = False
+
+    needs_setup = not embedding_ready
+
+    return HealthResponse(
+        status="ok",
+        embedding_ready=embedding_ready,
+        llm_ready=llm_ready,
+        needs_setup=needs_setup,
+    )
+
+
+OLLAMA_EMBEDDING_MODELS = {"nomic-embed-text", "mxbai-embed-large", "all-minilm"}
 
 
 @router.get("/models", response_model=ModelsResponse)
 async def get_models():
-    """Get list of available Ollama models for chat."""
+    """Get list of available Ollama models for chat (excludes embedding models)."""
     try:
         import ollama
 
@@ -114,7 +134,7 @@ async def get_models():
             name = m.model
             base_name = name.split(":")[0]
 
-            if base_name in EMBEDDING_MODELS:
+            if base_name in OLLAMA_EMBEDDING_MODELS:
                 continue
 
             size_bytes = m.size
