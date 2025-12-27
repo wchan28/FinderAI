@@ -64,6 +64,12 @@ class MetadataStore:
         cursor.execute("SELECT * FROM indexed_files")
         return [dict(row) for row in cursor.fetchall()]
 
+    def clear(self) -> None:
+        """Clear all indexed files from the metadata store."""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM indexed_files")
+        self.conn.commit()
+
     def close(self) -> None:
         """Close the database connection."""
         self.conn.close()

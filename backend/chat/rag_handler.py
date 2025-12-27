@@ -94,7 +94,7 @@ def _format_file_listing_response(file_matches: List[Dict], query: str, by_conte
 def search_files_by_content(
     query: str,
     vector_store: Optional[VectorStore] = None,
-    n_results: int = 20
+    n_results: int = 100
 ) -> List[Dict]:
     """Search for files whose content matches the query topic."""
     results = search_documents(query, vector_store, n_results)

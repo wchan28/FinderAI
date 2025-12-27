@@ -7,6 +7,7 @@ import {
   FileText,
   RefreshCw,
   Sliders,
+  Trash2,
 } from "lucide-react";
 import { FolderPicker } from "./FolderPicker";
 import { ProgressBar } from "../Indexing/ProgressBar";
@@ -32,6 +33,7 @@ export function SettingsPanel({ onRunSetup }: SettingsPanelProps) {
     error,
     startIndexing,
     reindexAll,
+    clearIndex,
     refreshStatus,
   } = useIndexing();
 
@@ -47,6 +49,12 @@ export function SettingsPanel({ onRunSetup }: SettingsPanelProps) {
 
   const handleReindex = () => {
     reindexAll(maxChunks);
+  };
+
+  const handleClearIndex = () => {
+    if (window.confirm("Are you sure you want to clear all indexed data? You will need to re-index your files.")) {
+      clearIndex();
+    }
   };
 
   return (
@@ -153,6 +161,14 @@ export function SettingsPanel({ onRunSetup }: SettingsPanelProps) {
                 >
                   <RefreshCw className="w-4 h-4" />
                   Reindex
+                </button>
+                <button
+                  onClick={handleClearIndex}
+                  disabled={isIndexing || !status?.indexed_files}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear
                 </button>
               </div>
 

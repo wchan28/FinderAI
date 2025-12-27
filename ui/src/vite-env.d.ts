@@ -3,6 +3,7 @@
 interface ElectronAPI {
   selectFolder: () => Promise<string | null>;
   getApiUrl: () => Promise<string>;
+  openFile: (filePath: string) => Promise<string>;
 }
 
 interface Window {

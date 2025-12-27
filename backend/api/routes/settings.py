@@ -19,6 +19,7 @@ from backend.providers.config import (
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_RERANKING_PROVIDER,
     DEFAULT_RERANKING_MODEL,
+    _get_config_store,
 )
 from backend.providers.llm.openai import OPENAI_MODELS
 from backend.providers.llm.google import GOOGLE_MODELS
@@ -48,6 +49,7 @@ class SettingsResponse(BaseModel):
     has_google_key: bool
     has_cohere_key: bool
     has_voyage_key: bool
+    indexed_folder: Optional[str] = None
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -83,6 +85,8 @@ class ProviderModelsResponse(BaseModel):
 async def get_settings():
     """Get current settings."""
     config = get_config()
+    store = _get_config_store()
+    indexed_folder = store.get("indexed_folder")
     return SettingsResponse(
         llm_provider=config.llm_provider,
         llm_model=config.llm_model,
@@ -97,6 +101,7 @@ async def get_settings():
         has_google_key=bool(config.google_api_key),
         has_cohere_key=bool(config.cohere_api_key),
         has_voyage_key=bool(config.voyage_api_key),
+        indexed_folder=indexed_folder,
     )
 
 
@@ -134,6 +139,9 @@ async def update_settings(request: SettingsUpdateRequest):
 
     reset_embedding_provider()
 
+    store = _get_config_store()
+    indexed_folder = store.get("indexed_folder")
+
     return SettingsResponse(
         llm_provider=config.llm_provider,
         llm_model=config.llm_model,
@@ -148,6 +156,7 @@ async def update_settings(request: SettingsUpdateRequest):
         has_google_key=bool(config.google_api_key),
         has_cohere_key=bool(config.cohere_api_key),
         has_voyage_key=bool(config.voyage_api_key),
+        indexed_folder=indexed_folder,
     )
 
 

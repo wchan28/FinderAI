@@ -13,8 +13,27 @@ from threading import Thread
 from backend.indexer.index_manager import index_folder, reindex_files
 from backend.db.vector_store import VectorStore
 from backend.db.metadata_store import MetadataStore
+from backend.providers.config import _get_config_store
+from backend.search.bm25_index import get_bm25_index
 
 router = APIRouter()
+
+
+@router.post("/clear-index")
+async def clear_index():
+    """Clear all indexed data."""
+    vector_store = VectorStore()
+    metadata_store = MetadataStore()
+    bm25_index = get_bm25_index()
+
+    vector_store.clear()
+    metadata_store.clear()
+    bm25_index.clear()
+
+    store = _get_config_store()
+    store.delete("indexed_folder")
+
+    return {"status": "cleared"}
 
 
 class IndexRequest(BaseModel):
@@ -33,6 +52,10 @@ async def generate_index_stream(folder: str, max_chunks: int, force: bool):
         yield f"data: {json.dumps({'type': 'error', 'content': f'Folder does not exist: {folder}'})}\n\n"
         yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
         return
+
+    absolute_folder = str(Path(folder).resolve())
+    store = _get_config_store()
+    store.set("indexed_folder", absolute_folder)
 
     message_queue: Queue = Queue()
 

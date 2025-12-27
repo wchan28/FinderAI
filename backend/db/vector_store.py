@@ -190,6 +190,10 @@ class VectorStore:
         """Return the total number of chunks in the collection."""
         return self.collection.count()
 
+    def clear(self) -> None:
+        """Clear all data from the vector store."""
+        self.reset_collection()
+
     def search_by_text(self, search_text: str, limit: int = 5) -> List[Dict]:
         """
         Search for chunks containing specific text (case-insensitive).

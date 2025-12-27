@@ -3,6 +3,7 @@ import {
   streamIndex,
   streamReindex,
   getStatus,
+  clearIndex as clearIndexApi,
   StatusResponse,
   IndexStats,
 } from "../api/client";
@@ -77,6 +78,23 @@ export function useIndexing() {
     [refreshStatus],
   );
 
+  const clearIndex = useCallback(async () => {
+    setIsIndexing(true);
+    setProgress([]);
+    setStats(null);
+    setError(null);
+
+    try {
+      await clearIndexApi();
+      setProgress(["Index cleared successfully"]);
+      refreshStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear index");
+    } finally {
+      setIsIndexing(false);
+    }
+  }, [refreshStatus]);
+
   return {
     isIndexing,
     progress,
@@ -85,6 +103,7 @@ export function useIndexing() {
     error,
     startIndexing,
     reindexAll,
+    clearIndex,
     refreshStatus,
   };
 }

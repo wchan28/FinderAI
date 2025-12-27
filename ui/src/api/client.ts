@@ -230,6 +230,7 @@ export interface Settings {
   has_google_key: boolean;
   has_cohere_key: boolean;
   has_voyage_key: boolean;
+  indexed_folder: string | null;
 }
 
 export interface ProviderModels {
@@ -278,5 +279,13 @@ export async function deleteApiKey(provider: string): Promise<void> {
 export async function getProviderModels(): Promise<ProviderModels> {
   const res = await fetch(`${API_BASE}/api/settings/providers`);
   if (!res.ok) throw new Error("Failed to get providers");
+  return res.json();
+}
+
+export async function clearIndex(): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/api/clear-index`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to clear index");
   return res.json();
 }

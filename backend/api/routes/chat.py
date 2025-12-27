@@ -6,7 +6,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.db.vector_store import VectorStore
-from backend.chat.rag_handler import get_answer, is_file_listing_query
+from backend.chat.rag_handler import (
+    get_answer,
+    is_file_listing_query,
+    is_file_content_query,
+    search_files_by_content,
+)
 from backend.search.retriever import search_documents, search_files_by_name
 
 router = APIRouter()
@@ -27,19 +32,33 @@ async def generate_chat_stream(message: str, n_context_results: int):
         return
 
     sources = []
+    seen_files = set()
 
     if is_file_listing_query(message):
         file_matches = search_files_by_name(message, vector_store)
         for m in file_matches:
-            sources.append({
-                "file_name": m["file_name"],
-                "file_path": m["file_path"],
-                "slide_number": 0,
-                "relevance_score": 1.0
-            })
+            if m["file_path"] not in seen_files:
+                sources.append({
+                    "file_name": m["file_name"],
+                    "file_path": m["file_path"],
+                    "slide_number": 0,
+                    "relevance_score": 1.0
+                })
+                seen_files.add(m["file_path"])
+
+    if is_file_content_query(message):
+        file_matches = search_files_by_content(message, vector_store)
+        for m in file_matches:
+            if m["file_path"] not in seen_files:
+                sources.append({
+                    "file_name": m["file_name"],
+                    "file_path": m["file_path"],
+                    "slide_number": 0,
+                    "relevance_score": m["relevance_score"]
+                })
+                seen_files.add(m["file_path"])
 
     results = search_documents(message, vector_store, n_results=n_context_results)
-    seen_files = {s["file_path"] for s in sources}
     for r in results:
         if r["file_path"] not in seen_files:
             sources.append({
