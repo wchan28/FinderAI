@@ -29,17 +29,17 @@ export function ChatSidebar({
         isOpen ? "w-64" : "w-0"
       } overflow-hidden`}
     >
-      <div className="flex items-center justify-between p-3 border-b border-gray-700">
+      <div className="drag-region flex items-center justify-between pt-12 px-3 pb-3">
         <button
           onClick={onNewChat}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-200 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>New Chat</span>
         </button>
         <button
           onClick={onToggle}
-          className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+          className="no-drag p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
           title="Close sidebar"
         >
           <PanelLeftClose className="w-5 h-5" />

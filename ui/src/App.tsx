@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ChatContainer } from "./components/Chat/ChatContainer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
+import { SettingsButton } from "./components/Settings/SettingsButton";
 import { SetupWizard } from "./components/Onboarding/SetupWizard";
 import { ChatSidebar } from "./components/Sidebar/ChatSidebar";
 import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
@@ -24,6 +25,7 @@ function App() {
     const stored = localStorage.getItem(SIDEBAR_OPEN_KEY);
     return stored !== "false";
   });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const {
     conversations,
@@ -178,7 +180,6 @@ function App() {
           </span>
         </div>
       )}
-      <SettingsPanel onRunSetup={handleRunSetup} />
       <div className="flex-1 flex overflow-hidden">
         <ChatSidebar
           isOpen={isSidebarOpen}
@@ -191,11 +192,11 @@ function App() {
           onDeleteConversation={deleteConversation}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {!isSidebarOpen && (
-            <div className="p-2 border-b border-gray-100">
+          <div className="drag-region h-10 flex-shrink-0 flex items-end px-2 pb-2">
+            {!isSidebarOpen && (
               <SidebarToggle onClick={handleToggleSidebar} />
-            </div>
-          )}
+            )}
+          </div>
           <div className="flex-1 overflow-hidden">
             <ChatContainer
               messages={messages}
@@ -206,6 +207,13 @@ function App() {
           </div>
         </div>
       </div>
+
+      <SettingsButton onClick={() => setIsSettingsOpen(true)} />
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onRunSetup={handleRunSetup}
+      />
     </div>
   );
 }
