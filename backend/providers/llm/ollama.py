@@ -57,8 +57,8 @@ class OllamaLLMProvider(BaseLLMProvider):
         try:
             ollama = self._get_ollama()
             models_response = ollama.list()
-            models = models_response.get("models", [])
-            model_names = [m.get("name", "").split(":")[0] for m in models]
+            models = models_response.models
+            model_names = [m.model.split(":")[0] for m in models if m.model]
             return self._model.split(":")[0] in model_names or len(models) > 0
         except Exception:
             return False
@@ -68,7 +68,6 @@ class OllamaLLMProvider(BaseLLMProvider):
         try:
             ollama = self._get_ollama()
             models_response = ollama.list()
-            models = models_response.get("models", [])
-            return [m.get("name", "") for m in models if m.get("name")]
+            return [m.model for m in models_response.models if m.model]
         except Exception:
             return []

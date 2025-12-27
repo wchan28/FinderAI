@@ -201,8 +201,8 @@ async def get_available_providers():
         import ollama
         ollama_response = ollama.list()
         ollama_models = [
-            m.get("name", "") for m in ollama_response.get("models", [])
-            if m.get("name") and "embed" not in m.get("name", "").lower()
+            m.model for m in ollama_response.models
+            if m.model and "embed" not in m.model.lower()
         ]
     except Exception:
         ollama_models = []

@@ -190,6 +190,42 @@ export function ProviderSettings({ onRunSetup }: ProviderSettingsProps) {
     await loadData();
   };
 
+  const handleLLMProviderChange = async (newProvider: string) => {
+    if (!settings || !providers) return;
+    setSaving(true);
+    try {
+      const newModels = providers.llm_providers[newProvider] || [];
+      const newModel = newModels[0] || "";
+      const updated = await updateSettings({
+        llm_provider: newProvider,
+        llm_model: newModel,
+      });
+      setSettings(updated);
+    } catch (error) {
+      console.error("Failed to update LLM provider:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEmbeddingProviderChange = async (newProvider: string) => {
+    if (!settings || !providers) return;
+    setSaving(true);
+    try {
+      const newModels = providers.embedding_providers[newProvider] || [];
+      const newModel = newModels[0] || "";
+      const updated = await updateSettings({
+        embedding_provider: newProvider,
+        embedding_model: newModel,
+      });
+      setSettings(updated);
+    } catch (error) {
+      console.error("Failed to update embedding provider:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -266,9 +302,7 @@ export function ProviderSettings({ onRunSetup }: ProviderSettingsProps) {
             <label className="block text-xs text-gray-500 mb-1">Provider</label>
             <select
               value={settings.llm_provider}
-              onChange={(e) =>
-                handleSettingChange("llm_provider", e.target.value)
-              }
+              onChange={(e) => handleLLMProviderChange(e.target.value)}
               disabled={saving}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
             >
@@ -307,9 +341,7 @@ export function ProviderSettings({ onRunSetup }: ProviderSettingsProps) {
             <label className="block text-xs text-gray-500 mb-1">Provider</label>
             <select
               value={settings.embedding_provider}
-              onChange={(e) =>
-                handleSettingChange("embedding_provider", e.target.value)
-              }
+              onChange={(e) => handleEmbeddingProviderChange(e.target.value)}
               disabled={saving}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
             >
