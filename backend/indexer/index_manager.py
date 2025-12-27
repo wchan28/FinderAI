@@ -217,6 +217,8 @@ def _process_single_file(
         result["extract_time"] = time.time() - start_extract
 
         if not content:
+            result["skipped"] = True
+            result["skip_reason"] = "no extractable content"
             result["total_time"] = time.time() - start_total
             return result
 
@@ -224,6 +226,8 @@ def _process_single_file(
         chunks = chunk_document(content, file_path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
         if not chunks:
+            result["skipped"] = True
+            result["skip_reason"] = "no chunks generated"
             result["total_time"] = time.time() - start_total
             return result
 
