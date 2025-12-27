@@ -34,7 +34,7 @@ export function InputArea({
   return (
     <div className="border-t bg-white px-4 py-4">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-end gap-2 bg-gray-100 rounded-2xl px-4 py-2">
+        <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-4 py-3">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

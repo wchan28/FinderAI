@@ -32,6 +32,7 @@ function App() {
     createConversation,
     selectConversation,
     deleteConversation,
+    clearActiveConversation,
     renameConversation,
     updateMessages,
   } = useChatHistory();
@@ -66,8 +67,14 @@ function App() {
   );
 
   const handleNewChat = useCallback(() => {
-    createConversation();
-  }, [createConversation]);
+    if (!activeConversationId) {
+      return;
+    }
+    if (activeConversation && activeConversation.messages.length === 0) {
+      return;
+    }
+    clearActiveConversation();
+  }, [activeConversationId, activeConversation, clearActiveConversation]);
 
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => {

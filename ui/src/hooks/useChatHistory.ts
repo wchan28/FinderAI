@@ -88,26 +88,17 @@ export function useChatHistory() {
 
   const deleteConversation = useCallback(
     (id: ConversationId) => {
-      setConversations((prev) => {
-        const filtered = prev.filter((c) => c.id !== id);
-        return filtered;
-      });
-
+      setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeConversationId === id) {
-        setConversations((prev) => {
-          const remaining = prev.filter((c) => c.id !== id);
-          if (remaining.length > 0) {
-            setActiveConversationId(remaining[0].id);
-          } else {
-            setActiveConversationId(null);
-          }
-          return prev;
-        });
-        setConversations((prev) => prev.filter((c) => c.id !== id));
+        setActiveConversationId(null);
       }
     },
     [activeConversationId],
   );
+
+  const clearActiveConversation = useCallback(() => {
+    setActiveConversationId(null);
+  }, []);
 
   const renameConversation = useCallback(
     (id: ConversationId, newTitle: string) => {
@@ -157,6 +148,7 @@ export function useChatHistory() {
     createConversation,
     selectConversation,
     deleteConversation,
+    clearActiveConversation,
     renameConversation,
     updateMessages,
   };

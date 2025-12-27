@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
+import { Pencil, Trash2, Check, X } from "lucide-react";
 import type { Conversation } from "../../types/chat";
 
 type ConversationItemProps = {
@@ -63,7 +63,6 @@ export function ConversationItem({
   if (isEditing) {
     return (
       <div className="group flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-700">
-        <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
         <input
           ref={inputRef}
           type="text"
@@ -100,7 +99,6 @@ export function ConversationItem({
           : "text-gray-300 hover:bg-gray-800 hover:text-gray-100"
       }`}
     >
-      <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
       <span className="flex-1 text-sm truncate">{conversation.title}</span>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
