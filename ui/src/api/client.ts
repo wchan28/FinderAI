@@ -21,7 +21,15 @@ export interface StatusResponse {
 export interface SkippedFile {
   file_name: string;
   reason: string;
-  chunks_would_be: number;
+  chunks_would_be?: number;
+}
+
+export interface SkippedByReason {
+  scanned_image: SkippedFile[];
+  empty_file: SkippedFile[];
+  file_too_large: SkippedFile[];
+  unsupported_type: SkippedFile[];
+  chunk_limit_exceeded: SkippedFile[];
 }
 
 export interface IndexStats {
@@ -33,6 +41,7 @@ export interface IndexStats {
   total_time: number;
   errors: string[];
   skipped_files: SkippedFile[];
+  skipped_by_reason: SkippedByReason;
 }
 
 export async function getStatus(): Promise<StatusResponse> {

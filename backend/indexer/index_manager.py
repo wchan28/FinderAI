@@ -32,6 +32,21 @@ EXTRACTORS = {
 }
 
 
+def _categorize_skip_reason(skip_reason: str) -> str:
+    """Map a skip reason string to a category key."""
+    if skip_reason == "scanned image":
+        return "scanned_image"
+    if skip_reason == "empty file" or skip_reason == "no chunks generated" or skip_reason == "no extractable content":
+        return "empty_file"
+    if skip_reason.startswith("file too large"):
+        return "file_too_large"
+    if skip_reason.startswith("unsupported type"):
+        return "unsupported_type"
+    if skip_reason.startswith("too many chunks"):
+        return "chunk_limit_exceeded"
+    return "empty_file"
+
+
 def scan_folder(folder_path: str, extensions: set = SUPPORTED_EXTENSIONS) -> List[str]:
     """Recursively scan a folder for supported files."""
     folder = Path(folder_path)
@@ -213,12 +228,19 @@ def _process_single_file(
 
         start_extract = time.time()
         extractor = EXTRACTORS[file_ext]
-        content = extractor(file_path)
+        extraction_result = extractor(file_path)
         result["extract_time"] = time.time() - start_extract
+
+        if file_ext == ".pdf" and isinstance(extraction_result, dict):
+            content = extraction_result.get("content", [])
+            skip_reason = extraction_result.get("skip_reason")
+        else:
+            content = extraction_result
+            skip_reason = None
 
         if not content:
             result["skipped"] = True
-            result["skip_reason"] = "no extractable content"
+            result["skip_reason"] = skip_reason or "no extractable content"
             result["total_time"] = time.time() - start_total
             return result
 
@@ -310,7 +332,14 @@ def index_folder(
         "total_embed_time": 0.0,
         "file_times": [],
         "errors": [],
-        "skipped_files": []
+        "skipped_files": [],
+        "skipped_by_reason": {
+            "scanned_image": [],
+            "empty_file": [],
+            "file_too_large": [],
+            "unsupported_type": [],
+            "chunk_limit_exceeded": [],
+        }
     }
 
     folder_start = time.time()
@@ -350,14 +379,23 @@ def index_folder(
                     "skipped": True,
                     "reason": result["skip_reason"]
                 })
+
+                skip_reason = result["skip_reason"]
+                category = _categorize_skip_reason(skip_reason)
+                skipped_entry = {
+                    "file_name": result["file_name"],
+                    "reason": skip_reason,
+                }
                 if result.get("chunks_would_be"):
-                    stats["skipped_files"].append({
-                        "file_name": result["file_name"],
-                        "reason": result["skip_reason"],
-                        "chunks_would_be": result["chunks_would_be"]
-                    })
+                    skipped_entry["chunks_would_be"] = result["chunks_would_be"]
+
+                stats["skipped_by_reason"][category].append(skipped_entry)
+
+                if category == "chunk_limit_exceeded":
+                    stats["skipped_files"].append(skipped_entry)
+
                 if progress_callback:
-                    progress_callback(f"[{completed_count}/{len(files)}] Skipped ({result['skip_reason']}): {result['file_name']}")
+                    progress_callback(f"[{completed_count}/{len(files)}] Skipped ({skip_reason}): {result['file_name']}")
             else:
                 stats["indexed_files"] += 1
                 stats["total_chunks"] += result["chunks"]
@@ -451,7 +489,14 @@ def reindex_files(
         "file_times": [],
         "errors": [],
         "removed_missing": len(missing_files),
-        "skipped_files": []
+        "skipped_files": [],
+        "skipped_by_reason": {
+            "scanned_image": [],
+            "empty_file": [],
+            "file_too_large": [],
+            "unsupported_type": [],
+            "chunk_limit_exceeded": [],
+        }
     }
 
     if not existing_files:
@@ -490,14 +535,23 @@ def reindex_files(
                     "skipped": True,
                     "reason": result["skip_reason"]
                 })
+
+                skip_reason = result["skip_reason"]
+                category = _categorize_skip_reason(skip_reason)
+                skipped_entry = {
+                    "file_name": result["file_name"],
+                    "reason": skip_reason,
+                }
                 if result.get("chunks_would_be"):
-                    stats["skipped_files"].append({
-                        "file_name": result["file_name"],
-                        "reason": result["skip_reason"],
-                        "chunks_would_be": result["chunks_would_be"]
-                    })
+                    skipped_entry["chunks_would_be"] = result["chunks_would_be"]
+
+                stats["skipped_by_reason"][category].append(skipped_entry)
+
+                if category == "chunk_limit_exceeded":
+                    stats["skipped_files"].append(skipped_entry)
+
                 if progress_callback:
-                    progress_callback(f"[{completed_count}/{len(existing_files)}] Skipped ({result['skip_reason']}): {result['file_name']}")
+                    progress_callback(f"[{completed_count}/{len(existing_files)}] Skipped ({skip_reason}): {result['file_name']}")
             else:
                 stats["indexed_files"] += 1
                 stats["total_chunks"] += result["chunks"]

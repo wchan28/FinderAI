@@ -1,10 +1,20 @@
 import { useState, useEffect } from "react";
-import { Database, FileText, RefreshCw, Sliders, Trash2 } from "lucide-react";
+import {
+  Database,
+  FileText,
+  RefreshCw,
+  Sliders,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Info,
+} from "lucide-react";
 import { Modal } from "../common/Modal";
 import { FolderPicker } from "./FolderPicker";
 import { ProgressBar } from "../Indexing/ProgressBar";
 import { ProviderSettings } from "./ProviderSettings";
 import { useIndexing } from "../../hooks/useIndexing";
+import type { SkippedByReason, SkippedFile } from "../../api/client";
 
 type Tab = "indexing" | "providers";
 
@@ -14,6 +24,59 @@ type SettingsPanelProps = {
   onRunSetup?: () => void;
 };
 
+function getOtherSkippedCount(
+  skippedByReason: SkippedByReason | undefined,
+): number {
+  if (!skippedByReason) return 0;
+  return (
+    skippedByReason.scanned_image.length +
+    skippedByReason.empty_file.length +
+    skippedByReason.file_too_large.length +
+    skippedByReason.unsupported_type.length
+  );
+}
+
+type SkipCategory = {
+  key: keyof Omit<SkippedByReason, "chunk_limit_exceeded">;
+  label: string;
+  files: SkippedFile[];
+};
+
+function getSkipCategories(skippedByReason: SkippedByReason): SkipCategory[] {
+  const categories: SkipCategory[] = [];
+
+  if (skippedByReason.scanned_image.length > 0) {
+    categories.push({
+      key: "scanned_image",
+      label: "scanned images (no searchable text)",
+      files: skippedByReason.scanned_image,
+    });
+  }
+  if (skippedByReason.empty_file.length > 0) {
+    categories.push({
+      key: "empty_file",
+      label: "empty files (no content)",
+      files: skippedByReason.empty_file,
+    });
+  }
+  if (skippedByReason.file_too_large.length > 0) {
+    categories.push({
+      key: "file_too_large",
+      label: "files too large (>50MB)",
+      files: skippedByReason.file_too_large,
+    });
+  }
+  if (skippedByReason.unsupported_type.length > 0) {
+    categories.push({
+      key: "unsupported_type",
+      label: "unsupported file types",
+      files: skippedByReason.unsupported_type,
+    });
+  }
+
+  return categories;
+}
+
 export function SettingsPanel({
   isOpen,
   onClose,
@@ -22,6 +85,7 @@ export function SettingsPanel({
   const [activeTab, setActiveTab] = useState<Tab>("indexing");
   const [folder, setFolder] = useState("");
   const [maxChunks, setMaxChunks] = useState(50);
+  const [showSkippedDetails, setShowSkippedDetails] = useState(false);
   const {
     isIndexing,
     progress,
@@ -190,6 +254,61 @@ export function SettingsPanel({
                 </p>
               </div>
             )}
+
+            {stats &&
+              !isIndexing &&
+              getOtherSkippedCount(stats.skipped_by_reason) > 0 && (
+                <div className="p-3 bg-gray-50 text-gray-600 text-sm rounded-lg">
+                  <button
+                    onClick={() => setShowSkippedDetails(!showSkippedDetails)}
+                    className="flex items-center gap-2 w-full text-left"
+                  >
+                    {showSkippedDetails ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                    <Info className="w-4 h-4" />
+                    <span className="font-medium">
+                      {getOtherSkippedCount(stats.skipped_by_reason)} file(s)
+                      skipped
+                    </span>
+                  </button>
+                  <div className="ml-6 mt-1 space-y-0.5">
+                    {getSkipCategories(stats.skipped_by_reason).map(
+                      (category) => (
+                        <div
+                          key={category.key}
+                          className="text-xs text-gray-500"
+                        >
+                          {category.files.length} {category.label}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                  {showSkippedDetails && (
+                    <div className="mt-2 ml-6 max-h-32 overflow-y-auto space-y-2">
+                      {getSkipCategories(stats.skipped_by_reason).map(
+                        (category) => (
+                          <div key={category.key}>
+                            <div className="text-xs font-medium text-gray-500 mb-1">
+                              {category.label}
+                            </div>
+                            {category.files.map((file, i) => (
+                              <div
+                                key={i}
+                                className="text-xs text-gray-400 truncate pl-2"
+                              >
+                                {file.file_name}
+                              </div>
+                            ))}
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
             {stats && !isIndexing && stats.errors?.length > 0 && (
               <div className="p-3 bg-red-50 text-red-800 text-sm rounded-lg">
