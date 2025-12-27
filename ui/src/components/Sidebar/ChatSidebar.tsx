@@ -1,6 +1,22 @@
-import { Plus, PanelLeftClose } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, PanelLeftClose, Search, X } from "lucide-react";
 import { ConversationList } from "./ConversationList";
 import type { Conversation, ConversationId } from "../../types/chat";
+
+export function filterConversations(
+  conversations: Conversation[],
+  searchQuery: string,
+): Conversation[] {
+  const trimmed = searchQuery.trim();
+  if (!trimmed) return conversations;
+
+  const query = trimmed.toLowerCase();
+  return conversations.filter(
+    (conv) =>
+      conv.title.toLowerCase().includes(query) ||
+      conv.messages.some((msg) => msg.content.toLowerCase().includes(query)),
+  );
+}
 
 type ChatSidebarProps = {
   isOpen: boolean;
@@ -23,6 +39,15 @@ export function ChatSidebar({
   onRenameConversation,
   onDeleteConversation,
 }: ChatSidebarProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredConversations = useMemo(
+    () => filterConversations(conversations, searchQuery),
+    [conversations, searchQuery],
+  );
+
+  const hasSearchQuery = searchQuery.trim().length > 0;
+
   return (
     <div
       className={`flex flex-col bg-gray-900 transition-all duration-300 ease-in-out ${
@@ -46,13 +71,36 @@ export function ChatSidebar({
         </button>
       </div>
 
+      <div className="px-3 pb-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search chats..."
+            className="w-full bg-gray-800 text-gray-200 text-sm pl-9 pr-8 py-2 rounded-lg outline-none focus:ring-1 focus:ring-gray-600 placeholder-gray-500"
+          />
+          {hasSearchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300 transition-colors"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto py-2 sidebar-scrollbar">
         <ConversationList
-          conversations={conversations}
+          conversations={filteredConversations}
           activeConversationId={activeConversationId}
           onSelect={onSelectConversation}
           onRename={onRenameConversation}
           onDelete={onDeleteConversation}
+          hasSearchQuery={hasSearchQuery}
         />
       </div>
     </div>
