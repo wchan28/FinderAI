@@ -20,17 +20,21 @@ type UseChatOptions = {
 export function useChat(options: UseChatOptions = {}) {
   const { conversationId, initialMessages, onMessagesChange } = options;
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
+  const [isLoading, setIsLoading] = useState(false);
   const onMessagesChangeRef = useRef(onMessagesChange);
   const prevConversationIdRef = useRef(conversationId);
   const isInternalUpdateRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   onMessagesChangeRef.current = onMessagesChange;
 
   useEffect(() => {
     if (prevConversationIdRef.current !== conversationId) {
       prevConversationIdRef.current = conversationId;
-      setMessages(initialMessages ?? []);
+      if (!isLoading) {
+        setMessages(initialMessages ?? []);
+      }
     }
-  }, [conversationId, initialMessages]);
+  }, [conversationId, initialMessages, isLoading]);
 
   useEffect(() => {
     if (isInternalUpdateRef.current) {
@@ -46,9 +50,6 @@ export function useChat(options: UseChatOptions = {}) {
     },
     [],
   );
-
-  const [isLoading, setIsLoading] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const stopGeneration = useCallback(() => {
     if (abortControllerRef.current) {
@@ -107,7 +108,7 @@ export function useChat(options: UseChatOptions = {}) {
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
-                if (lastMsg.role === "assistant") {
+                if (lastMsg?.role === "assistant") {
                   lastMsg.content += chunk;
                   if (!hasReceivedChunk) {
                     hasReceivedChunk = true;
@@ -122,7 +123,7 @@ export function useChat(options: UseChatOptions = {}) {
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
-                if (lastMsg.role === "assistant" && !hasReceivedChunk) {
+                if (lastMsg?.role === "assistant" && !hasReceivedChunk) {
                   lastMsg.status = "thinking";
                 }
                 return updated;
@@ -132,7 +133,7 @@ export function useChat(options: UseChatOptions = {}) {
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
-                if (lastMsg.role === "assistant") {
+                if (lastMsg?.role === "assistant") {
                   lastMsg.isStreaming = false;
                   lastMsg.sources = sources;
                   lastMsg.status = undefined;
@@ -146,7 +147,7 @@ export function useChat(options: UseChatOptions = {}) {
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
-                if (lastMsg.role === "assistant") {
+                if (lastMsg?.role === "assistant") {
                   lastMsg.content = `Error: ${error}`;
                   lastMsg.isStreaming = false;
                   lastMsg.status = undefined;

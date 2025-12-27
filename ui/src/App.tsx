@@ -61,7 +61,8 @@ function App() {
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!activeConversationIdRef.current) {
-        createConversation();
+        const newId = createConversation();
+        activeConversationIdRef.current = newId;
       }
       await sendMessage(content);
     },
@@ -193,9 +194,7 @@ function App() {
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="drag-region h-10 flex-shrink-0 flex items-end px-2 pb-2">
-            {!isSidebarOpen && (
-              <SidebarToggle onClick={handleToggleSidebar} />
-            )}
+            {!isSidebarOpen && <SidebarToggle onClick={handleToggleSidebar} />}
           </div>
           <div className="flex-1 overflow-hidden">
             <ChatContainer
