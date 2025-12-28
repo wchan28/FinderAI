@@ -16,6 +16,8 @@ import { ProviderSettings } from "./ProviderSettings";
 import { useIndexing } from "../../hooks/useIndexing";
 import type { SkippedByReason, SkippedFile } from "../../api/client";
 
+const SHOW_PROVIDER_SETTINGS = false;
+
 type Tab = "indexing" | "providers";
 
 type SettingsPanelProps = {
@@ -141,22 +143,24 @@ export function SettingsPanel({
               Indexing
             </span>
           </button>
-          <button
-            onClick={() => setActiveTab("providers")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "providers"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Sliders className="w-4 h-4" />
-              AI Providers
-            </span>
-          </button>
+          {SHOW_PROVIDER_SETTINGS && (
+            <button
+              onClick={() => setActiveTab("providers")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "providers"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Sliders className="w-4 h-4" />
+                AI Providers
+              </span>
+            </button>
+          )}
         </div>
 
-        {activeTab === "providers" && (
+        {SHOW_PROVIDER_SETTINGS && activeTab === "providers" && (
           <ProviderSettings onRunSetup={onRunSetup} />
         )}
 

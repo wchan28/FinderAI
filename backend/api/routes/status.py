@@ -86,28 +86,8 @@ async def health_check():
 
     config = get_config()
 
-    embedding_ready = False
-    llm_ready = False
-
-    if config.embedding_provider == "voyage":
-        embedding_ready = bool(config.voyage_api_key)
-    elif config.embedding_provider == "cohere":
-        embedding_ready = bool(config.cohere_api_key)
-    elif config.embedding_provider == "openai":
-        embedding_ready = bool(config.openai_api_key)
-
-    if config.llm_provider == "openai":
-        llm_ready = bool(config.openai_api_key)
-    elif config.llm_provider == "google":
-        llm_ready = bool(config.google_api_key)
-    elif config.llm_provider == "ollama":
-        try:
-            import ollama
-            ollama.list()
-            llm_ready = True
-        except Exception:
-            llm_ready = False
-
+    embedding_ready = bool(config.voyage_api_key)
+    llm_ready = bool(config.openai_api_key)
     needs_setup = not embedding_ready
 
     return HealthResponse(

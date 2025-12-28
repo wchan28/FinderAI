@@ -30,6 +30,9 @@ data/
 .env.local
 .env.*.local
 
+# Bundled API keys (owner-provided, not committed)
+backend/providers/.bundled_keys.json
+
 # OS
 .DS_Store
 Thumbs.db

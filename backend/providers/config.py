@@ -2,18 +2,41 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+BUNDLED_KEY_PROVIDERS = {"openai", "cohere"}
+
+_bundled_keys_cache: dict[str, str] | None = None
+
+
+def _load_bundled_keys() -> dict[str, str]:
+    """Load bundled API keys from JSON file (for owner-provided services)."""
+    global _bundled_keys_cache
+    if _bundled_keys_cache is not None:
+        return _bundled_keys_cache
+
+    bundled_path = Path(__file__).parent / ".bundled_keys.json"
+    if bundled_path.exists():
+        try:
+            _bundled_keys_cache = json.loads(bundled_path.read_text())
+            return _bundled_keys_cache
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    _bundled_keys_cache = {}
+    return _bundled_keys_cache
+
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODEL = "gpt-5.1"
 DEFAULT_EMBEDDING_PROVIDER = "voyage"
 DEFAULT_EMBEDDING_MODEL = "voyage-3-large"
 DEFAULT_RERANKING_PROVIDER = "cohere"
-DEFAULT_RERANKING_MODEL = "rerank-v4.0"
+DEFAULT_RERANKING_MODEL = "rerank-v4.0-fast"
 
 
 @dataclass
@@ -143,7 +166,7 @@ def save_config(config: ProviderConfig) -> None:
 
 
 def _get_api_key(provider: str) -> Optional[str]:
-    """Get API key from environment or secure storage."""
+    """Get API key from environment, secure storage, or bundled keys."""
     env_var = f"{provider.upper()}_API_KEY"
     key = os.environ.get(env_var)
     if key:
@@ -151,12 +174,22 @@ def _get_api_key(provider: str) -> Optional[str]:
 
     try:
         import keyring
-        return keyring.get_password("finderai", f"{provider}_api_key")
+        key = keyring.get_password("finderai", f"{provider}_api_key")
+        if key:
+            return key
     except (ImportError, Exception):
         pass
 
     store = _get_config_store()
-    return store.get(f"{provider}_api_key")
+    key = store.get(f"{provider}_api_key")
+    if key:
+        return key
+
+    if provider in BUNDLED_KEY_PROVIDERS:
+        bundled_keys = _load_bundled_keys()
+        return bundled_keys.get(f"{provider.upper()}_API_KEY")
+
+    return None
 
 
 def save_api_key(provider: str, api_key: str) -> None:

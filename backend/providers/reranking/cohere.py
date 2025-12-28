@@ -8,7 +8,7 @@ from backend.providers.reranking.base import BaseRerankingProvider, RerankResult
 
 
 COHERE_RERANK_MODELS = [
-    "rerank-v4.0",
+    "rerank-v4.0-pro",
     "rerank-v4.0-fast",
     "rerank-v3.5",
     "rerank-english-v3.0",
@@ -19,7 +19,7 @@ COHERE_RERANK_MODELS = [
 class CohereRerankingProvider(BaseRerankingProvider):
     """Reranking provider using Cohere Rerank API."""
 
-    def __init__(self, api_key: str, model: str = "rerank-v4.0"):
+    def __init__(self, api_key: str, model: str = "rerank-v4.0-fast"):
         self._api_key = api_key
         self._model = model
         self._client = None
