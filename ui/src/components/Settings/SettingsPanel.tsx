@@ -90,6 +90,7 @@ export function SettingsPanel({
   const [showSkippedDetails, setShowSkippedDetails] = useState(false);
   const {
     isIndexing,
+    isClearing,
     progress,
     stats,
     status,
@@ -175,7 +176,10 @@ export function SettingsPanel({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Folder to Index
               </label>
-              <FolderPicker onSelect={setFolder} disabled={isIndexing} />
+              <FolderPicker
+                onSelect={setFolder}
+                disabled={isIndexing || isClearing}
+              />
             </div>
 
             <div>
@@ -189,7 +193,7 @@ export function SettingsPanel({
                 step="10"
                 value={maxChunks}
                 onChange={(e) => setMaxChunks(Number(e.target.value))}
-                disabled={isIndexing}
+                disabled={isIndexing || isClearing}
                 className="w-full"
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -219,7 +223,7 @@ export function SettingsPanel({
               )}
               <button
                 onClick={handleClearIndex}
-                disabled={isIndexing || !status?.indexed_files}
+                disabled={isIndexing || isClearing || !status?.indexed_files}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
                 <Trash2 className="w-4 h-4" />

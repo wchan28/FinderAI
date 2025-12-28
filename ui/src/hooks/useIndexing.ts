@@ -13,6 +13,7 @@ import {
 
 export function useIndexing() {
   const [isIndexing, setIsIndexing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
   const [stats, setStats] = useState<IndexStats | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -144,7 +145,7 @@ export function useIndexing() {
   );
 
   const clearIndex = useCallback(async () => {
-    setIsIndexing(true);
+    setIsClearing(true);
     setProgress([]);
     setStats(null);
     setError(null);
@@ -156,12 +157,13 @@ export function useIndexing() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to clear index");
     } finally {
-      setIsIndexing(false);
+      setIsClearing(false);
     }
   }, [refreshStatus]);
 
   return {
     isIndexing,
+    isClearing,
     progress,
     stats,
     status,
