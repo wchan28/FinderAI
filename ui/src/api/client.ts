@@ -141,6 +141,7 @@ export async function streamChat(
 export interface IndexStreamCallbacks {
   onProgress: (message: string) => void;
   onStats: (stats: IndexStats) => void;
+  onCancelled: (stats: IndexStats) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
@@ -212,6 +213,8 @@ async function processSSEStream(
             callbacks.onProgress(data.content);
           } else if (data.type === "stats") {
             callbacks.onStats(data.content);
+          } else if (data.type === "cancelled") {
+            callbacks.onCancelled(data.content);
           } else if (data.type === "done") {
             callbacks.onDone();
           } else if (data.type === "error") {
@@ -223,6 +226,14 @@ async function processSSEStream(
       }
     }
   }
+}
+
+export async function cancelIndex(): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/api/index/cancel`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to cancel indexing");
+  return res.json();
 }
 
 export interface Settings {

@@ -4,6 +4,7 @@ import {
   streamReindex,
   getStatus,
   clearIndex as clearIndexApi,
+  cancelIndex as cancelIndexApi,
   getIndexingResults,
   StatusResponse,
   IndexStats,
@@ -40,6 +41,14 @@ export function useIndexing() {
     restoreResults();
   }, [restoreResults]);
 
+  const stopIndexing = useCallback(async () => {
+    try {
+      await cancelIndexApi();
+    } catch (err) {
+      console.error("Failed to cancel indexing:", err);
+    }
+  }, []);
+
   const startIndexing = useCallback(
     async (folder: string, maxChunks: number = 50, force: boolean = false) => {
       setIsIndexing(true);
@@ -53,6 +62,10 @@ export function useIndexing() {
         },
         onStats: (newStats) => {
           setStats(newStats);
+        },
+        onCancelled: (newStats) => {
+          setStats(newStats);
+          setProgress((prev) => [...prev, "Indexing stopped by user"]);
         },
         onDone: () => {
           setIsIndexing(false);
@@ -80,6 +93,10 @@ export function useIndexing() {
         },
         onStats: (newStats) => {
           setStats(newStats);
+        },
+        onCancelled: (newStats) => {
+          setStats(newStats);
+          setProgress((prev) => [...prev, "Reindexing stopped by user"]);
         },
         onDone: () => {
           setIsIndexing(false);
@@ -118,6 +135,7 @@ export function useIndexing() {
     status,
     error,
     startIndexing,
+    stopIndexing,
     reindexAll,
     clearIndex,
     refreshStatus,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, Future
 from pathlib import Path
 from typing import List, Callable, Optional
 
@@ -294,7 +294,8 @@ def index_folder(
     progress_callback: Optional[Callable[[str], None]] = None,
     force_reindex: bool = False,
     parallel_workers: int = PARALLEL_WORKERS,
-    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE
+    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
+    cancel_event: Optional[threading.Event] = None
 ) -> dict:
     """
     Index all supported files in a folder using parallel processing.
@@ -307,9 +308,10 @@ def index_folder(
         force_reindex: If True, reindex all files even if unchanged
         parallel_workers: Number of parallel workers (default: 3)
         max_chunks_per_file: Max chunks per file before skipping (default: 50)
+        cancel_event: Optional threading.Event to signal cancellation
 
     Returns:
-        Dict with indexing statistics
+        Dict with indexing statistics (includes 'cancelled' bool if stopped early)
     """
     if vector_store is None:
         expected_dim = get_embedding_dimension()
@@ -339,7 +341,8 @@ def index_folder(
             "file_too_large": [],
             "unsupported_type": [],
             "chunk_limit_exceeded": [],
-        }
+        },
+        "cancelled": False
     }
 
     folder_start = time.time()
@@ -347,8 +350,11 @@ def index_folder(
     completed_count = 0
 
     with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
-        futures = {
-            executor.submit(
+        futures: dict[Future, str] = {}
+        for file_path in files:
+            if cancel_event and cancel_event.is_set():
+                break
+            futures[executor.submit(
                 _process_single_file,
                 file_path,
                 vector_store,
@@ -356,11 +362,16 @@ def index_folder(
                 db_lock,
                 force_reindex,
                 max_chunks_per_file
-            ): file_path
-            for file_path in files
-        }
+            )] = file_path
 
         for future in as_completed(futures):
+            if cancel_event and cancel_event.is_set():
+                stats["cancelled"] = True
+                if progress_callback:
+                    progress_callback("Indexing cancelled by user")
+                executor.shutdown(wait=False, cancel_futures=True)
+                break
+
             completed_count += 1
             result = future.result()
 
@@ -442,7 +453,8 @@ def reindex_files(
     metadata_store: Optional[MetadataStore] = None,
     progress_callback: Optional[Callable[[str], None]] = None,
     parallel_workers: int = PARALLEL_WORKERS,
-    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE
+    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
+    cancel_event: Optional[threading.Event] = None
 ) -> dict:
     """
     Reindex specific files (force reindex).
@@ -454,9 +466,10 @@ def reindex_files(
         progress_callback: Optional callback for progress updates
         parallel_workers: Number of parallel workers (default: 3)
         max_chunks_per_file: Max chunks per file before skipping (default: 50)
+        cancel_event: Optional threading.Event to signal cancellation
 
     Returns:
-        Dict with indexing statistics
+        Dict with indexing statistics (includes 'cancelled' bool if stopped early)
     """
     if vector_store is None:
         expected_dim = get_embedding_dimension()
@@ -496,7 +509,8 @@ def reindex_files(
             "file_too_large": [],
             "unsupported_type": [],
             "chunk_limit_exceeded": [],
-        }
+        },
+        "cancelled": False
     }
 
     if not existing_files:
@@ -507,8 +521,11 @@ def reindex_files(
     completed_count = 0
 
     with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
-        futures = {
-            executor.submit(
+        futures: dict[Future, str] = {}
+        for file_path in existing_files:
+            if cancel_event and cancel_event.is_set():
+                break
+            futures[executor.submit(
                 _process_single_file,
                 file_path,
                 vector_store,
@@ -516,11 +533,16 @@ def reindex_files(
                 db_lock,
                 True,
                 max_chunks_per_file
-            ): file_path
-            for file_path in existing_files
-        }
+            )] = file_path
 
         for future in as_completed(futures):
+            if cancel_event and cancel_event.is_set():
+                stats["cancelled"] = True
+                if progress_callback:
+                    progress_callback("Reindexing cancelled by user")
+                executor.shutdown(wait=False, cancel_futures=True)
+                break
+
             completed_count += 1
             result = future.result()
 

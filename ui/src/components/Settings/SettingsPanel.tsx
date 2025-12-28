@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
+  Square,
 } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { FolderPicker } from "./FolderPicker";
@@ -95,6 +96,7 @@ export function SettingsPanel({
     status,
     error,
     startIndexing,
+    stopIndexing,
     reindexAll,
     clearIndex,
     refreshStatus,
@@ -110,6 +112,10 @@ export function SettingsPanel({
     if (folder) {
       startIndexing(folder, maxChunks);
     }
+  };
+
+  const handleStop = () => {
+    stopIndexing();
   };
 
   const handleReindex = () => {
@@ -194,14 +200,24 @@ export function SettingsPanel({
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={handleIndex}
-                disabled={!folder || isIndexing}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-              >
-                <Database className="w-4 h-4" />
-                {isIndexing ? "Indexing..." : "Index Folder"}
-              </button>
+              {isIndexing ? (
+                <button
+                  onClick={handleStop}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Square className="w-4 h-4" />
+                  Stop Indexing
+                </button>
+              ) : (
+                <button
+                  onClick={handleIndex}
+                  disabled={!folder}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  <Database className="w-4 h-4" />
+                  Index Folder
+                </button>
+              )}
               <button
                 onClick={handleReindex}
                 disabled={isIndexing || !status?.indexed_files}
