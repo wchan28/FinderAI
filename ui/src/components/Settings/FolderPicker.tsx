@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FolderOpen } from "lucide-react";
 
-interface FolderPickerProps {
+type FolderPickerProps = {
   onSelect: (folder: string) => void;
   disabled?: boolean;
-}
+  value?: string;
+};
 
-export function FolderPicker({ onSelect, disabled }: FolderPickerProps) {
-  const [folder, setFolder] = useState("");
+export function FolderPicker({
+  onSelect,
+  disabled,
+  value = "",
+}: FolderPickerProps) {
+  const [folder, setFolder] = useState(value);
+
+  useEffect(() => {
+    setFolder(value);
+  }, [value]);
 
   const handleBrowse = async () => {
     if (window.electronAPI) {

@@ -14,6 +14,7 @@ import { FolderPicker } from "./FolderPicker";
 import { ProgressBar } from "../Indexing/ProgressBar";
 import { ProviderSettings } from "./ProviderSettings";
 import { useIndexing } from "../../hooks/useIndexing";
+import { getSettings } from "../../api/client";
 import type { SkippedByReason, SkippedFile } from "../../api/client";
 
 const SHOW_PROVIDER_SETTINGS = false;
@@ -105,6 +106,13 @@ export function SettingsPanel({
   useEffect(() => {
     if (isOpen) {
       refreshStatus();
+      getSettings()
+        .then((settings) => {
+          if (settings.indexed_folder) {
+            setFolder(settings.indexed_folder);
+          }
+        })
+        .catch(console.error);
     }
   }, [isOpen, refreshStatus]);
 
@@ -177,6 +185,7 @@ export function SettingsPanel({
                 Folder to Index
               </label>
               <FolderPicker
+                value={folder}
                 onSelect={setFolder}
                 disabled={isIndexing || isClearing}
               />
