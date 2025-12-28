@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import {
   streamIndex,
   streamReindex,
+  streamIndexSkipped,
   getStatus,
   clearIndex as clearIndexApi,
   cancelIndex as cancelIndexApi,
@@ -111,6 +112,37 @@ export function useIndexing() {
     [refreshStatus],
   );
 
+  const indexSkippedFiles = useCallback(
+    async (maxChunks: number = 50) => {
+      setIsIndexing(true);
+      setProgress([]);
+      setStats(null);
+      setError(null);
+
+      await streamIndexSkipped(maxChunks, {
+        onProgress: (message) => {
+          setProgress((prev) => [...prev, message]);
+        },
+        onStats: (newStats) => {
+          setStats(newStats);
+        },
+        onCancelled: (newStats) => {
+          setStats(newStats);
+          setProgress((prev) => [...prev, "Indexing stopped by user"]);
+        },
+        onDone: () => {
+          setIsIndexing(false);
+          refreshStatus();
+        },
+        onError: (err) => {
+          setError(err);
+          setIsIndexing(false);
+        },
+      });
+    },
+    [refreshStatus],
+  );
+
   const clearIndex = useCallback(async () => {
     setIsIndexing(true);
     setProgress([]);
@@ -137,6 +169,7 @@ export function useIndexing() {
     startIndexing,
     stopIndexing,
     reindexAll,
+    indexSkippedFiles,
     clearIndex,
     refreshStatus,
   };

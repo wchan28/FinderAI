@@ -19,6 +19,7 @@ export interface StatusResponse {
 }
 
 export interface SkippedFile {
+  file_path?: string;
   file_name: string;
   reason: string;
   chunks_would_be?: number;
@@ -178,6 +179,24 @@ export async function streamReindex(
 
   if (!res.ok) {
     callbacks.onError("Failed to start reindexing");
+    return;
+  }
+
+  await processSSEStream(res, callbacks);
+}
+
+export async function streamIndexSkipped(
+  maxChunks: number,
+  callbacks: IndexStreamCallbacks,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/index/skipped`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ max_chunks: maxChunks }),
+  });
+
+  if (!res.ok) {
+    callbacks.onError("Failed to start indexing skipped files");
     return;
   }
 

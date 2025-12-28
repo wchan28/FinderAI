@@ -98,6 +98,7 @@ export function SettingsPanel({
     startIndexing,
     stopIndexing,
     reindexAll,
+    indexSkippedFiles,
     clearIndex,
     refreshStatus,
   } = useIndexing();
@@ -120,6 +121,10 @@ export function SettingsPanel({
 
   const handleReindex = () => {
     reindexAll(maxChunks);
+  };
+
+  const handleIndexSkipped = () => {
+    indexSkippedFiles(maxChunks);
   };
 
   const handleClearIndex = () => {
@@ -256,8 +261,8 @@ export function SettingsPanel({
             {stats && !isIndexing && stats.skipped_files?.length > 0 && (
               <div className="p-3 bg-amber-50 text-amber-800 text-sm rounded-lg">
                 <p className="font-medium mb-2">
-                  {stats.skipped_files.length} file(s) skipped (exceeded{" "}
-                  {maxChunks} chunk limit)
+                  {stats.skipped_files.length} file(s) skipped (exceeded chunk
+                  limit)
                 </p>
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {stats.skipped_files.map((file, i) => (
@@ -269,9 +274,22 @@ export function SettingsPanel({
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-amber-600 mt-2">
-                  Increase "Max Chunks per File" above to index these files
-                </p>
+                <div className="mt-3 flex items-center justify-between">
+                  <p className="text-xs text-amber-600">
+                    Set Max Chunks to{" "}
+                    {Math.max(
+                      ...stats.skipped_files.map((f) => f.chunks_would_be || 0),
+                    )}
+                    + to index all
+                  </p>
+                  <button
+                    onClick={handleIndexSkipped}
+                    className="px-3 py-1.5 bg-amber-500 text-white text-xs rounded hover:bg-amber-600 transition-colors flex items-center gap-1"
+                  >
+                    <Database className="w-3 h-3" />
+                    Index These Files
+                  </button>
+                </div>
               </div>
             )}
 

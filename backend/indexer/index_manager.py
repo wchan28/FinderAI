@@ -394,6 +394,7 @@ def index_folder(
                 skip_reason = result["skip_reason"]
                 category = _categorize_skip_reason(skip_reason)
                 skipped_entry = {
+                    "file_path": result["file_path"],
                     "file_name": result["file_name"],
                     "reason": skip_reason,
                 }
@@ -561,6 +562,7 @@ def reindex_files(
                 skip_reason = result["skip_reason"]
                 category = _categorize_skip_reason(skip_reason)
                 skipped_entry = {
+                    "file_path": result["file_path"],
                     "file_name": result["file_name"],
                     "reason": skip_reason,
                 }

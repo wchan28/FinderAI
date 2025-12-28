@@ -45,13 +45,22 @@ class MetadataStore:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS skipped_files (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT,
                 file_name TEXT,
                 reason TEXT,
                 chunks_would_be INTEGER,
                 category TEXT
             )
         """)
+        self._migrate_skipped_files_table(cursor)
         self.conn.commit()
+
+    def _migrate_skipped_files_table(self, cursor) -> None:
+        """Add file_path column to skipped_files if it doesn't exist."""
+        cursor.execute("PRAGMA table_info(skipped_files)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "file_path" not in columns:
+            cursor.execute("ALTER TABLE skipped_files ADD COLUMN file_path TEXT")
 
     def get_file_hash(self, file_path: str) -> Optional[str]:
         """Get the stored hash for a file path."""
@@ -120,9 +129,10 @@ class MetadataStore:
         for category, files in skipped_by_reason.items():
             for f in files:
                 cursor.execute("""
-                    INSERT INTO skipped_files (file_name, reason, chunks_would_be, category)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO skipped_files (file_path, file_name, reason, chunks_would_be, category)
+                    VALUES (?, ?, ?, ?, ?)
                 """, (
+                    f.get("file_path"),
                     f.get("file_name"),
                     f.get("reason"),
                     f.get("chunks_would_be"),
@@ -156,6 +166,8 @@ class MetadataStore:
                 "file_name": sf["file_name"],
                 "reason": sf["reason"],
             }
+            if sf["file_path"] is not None:
+                entry["file_path"] = sf["file_path"]
             if sf["chunks_would_be"] is not None:
                 entry["chunks_would_be"] = sf["chunks_would_be"]
 
@@ -184,6 +196,15 @@ class MetadataStore:
         cursor.execute("DELETE FROM indexing_results")
         cursor.execute("DELETE FROM skipped_files")
         self.conn.commit()
+
+    def get_skipped_file_paths(self, category: str = "chunk_limit_exceeded") -> List[str]:
+        """Get file paths for skipped files in a category."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT file_path FROM skipped_files WHERE category = ? AND file_path IS NOT NULL",
+            (category,)
+        )
+        return [row["file_path"] for row in cursor.fetchall()]
 
     def close(self) -> None:
         """Close the database connection."""

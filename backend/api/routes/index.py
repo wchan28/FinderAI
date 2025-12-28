@@ -49,6 +49,10 @@ class ReindexRequest(BaseModel):
     max_chunks: int = 50
 
 
+class IndexSkippedRequest(BaseModel):
+    max_chunks: int = 50
+
+
 @router.post("/index/cancel")
 async def cancel_index():
     """Cancel the current indexing operation."""
@@ -213,6 +217,104 @@ async def reindex(request: ReindexRequest):
     """Reindex all currently indexed files with streaming progress updates."""
     return StreamingResponse(
         generate_reindex_stream(request.max_chunks),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+def _merge_stats(existing: dict, new_stats: dict) -> dict:
+    """Merge new indexing stats into existing results."""
+    return {
+        "total_files": existing.get("total_files", 0),
+        "indexed_files": existing.get("indexed_files", 0) + new_stats.get("indexed_files", 0),
+        "skipped_unchanged": existing.get("skipped_unchanged", 0),
+        "skipped_limits": new_stats.get("skipped_limits", 0),
+        "total_chunks": existing.get("total_chunks", 0) + new_stats.get("total_chunks", 0),
+        "total_time": existing.get("total_time", 0) + new_stats.get("total_time", 0),
+        "total_embed_time": existing.get("total_embed_time", 0) + new_stats.get("total_embed_time", 0),
+        "errors": existing.get("errors", []) + new_stats.get("errors", []),
+        "skipped_files": new_stats.get("skipped_files", []),
+        "skipped_by_reason": new_stats.get("skipped_by_reason", {}),
+    }
+
+
+async def generate_index_skipped_stream(max_chunks: int):
+    """Generate SSE stream for indexing previously skipped files."""
+    global _cancel_event
+
+    metadata_store = MetadataStore()
+    file_paths = metadata_store.get_skipped_file_paths("chunk_limit_exceeded")
+
+    if not file_paths:
+        yield f"data: {json.dumps({'type': 'error', 'content': 'No skipped files to index'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+        return
+
+    message_queue: Queue = Queue()
+    _cancel_event = Event()
+    cancel_event = _cancel_event
+
+    def progress_callback(msg: str):
+        message_queue.put(msg)
+
+    def run_indexing():
+        try:
+            stats = reindex_files(
+                file_paths,
+                progress_callback=progress_callback,
+                max_chunks_per_file=max_chunks,
+                cancel_event=cancel_event
+            )
+            reindex_metadata_store = MetadataStore()
+            existing = reindex_metadata_store.get_indexing_results() or {}
+            merged_stats = _merge_stats(existing, stats)
+            reindex_metadata_store.save_indexing_results(merged_stats)
+            if stats.get("cancelled"):
+                message_queue.put(("CANCELLED", merged_stats))
+            else:
+                message_queue.put(("STATS", merged_stats))
+        except Exception as e:
+            message_queue.put(("ERROR", str(e)))
+        finally:
+            message_queue.put(("DONE", None))
+
+    thread = Thread(target=run_indexing)
+    thread.start()
+
+    try:
+        while True:
+            await asyncio.sleep(0.05)
+
+            while not message_queue.empty():
+                item = message_queue.get()
+
+                if isinstance(item, tuple):
+                    msg_type, data = item
+                    if msg_type == "DONE":
+                        yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+                        thread.join()
+                        return
+                    elif msg_type == "STATS":
+                        yield f"data: {json.dumps({'type': 'stats', 'content': data})}\n\n"
+                    elif msg_type == "CANCELLED":
+                        yield f"data: {json.dumps({'type': 'cancelled', 'content': data})}\n\n"
+                    elif msg_type == "ERROR":
+                        yield f"data: {json.dumps({'type': 'error', 'content': data})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'progress', 'content': item})}\n\n"
+    finally:
+        _cancel_event = None
+
+
+@router.post("/index/skipped")
+async def index_skipped(request: IndexSkippedRequest):
+    """Index previously skipped files with new max_chunks setting."""
+    return StreamingResponse(
+        generate_index_skipped_stream(request.max_chunks),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
