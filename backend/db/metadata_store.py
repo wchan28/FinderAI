@@ -52,6 +52,29 @@ class MetadataStore:
                 category TEXT
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS indexing_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                folder_path TEXT NOT NULL,
+                max_chunks INTEGER DEFAULT 50,
+                force_reindex INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                files_total INTEGER DEFAULT 0,
+                files_processed INTEGER DEFAULT 0,
+                started_at TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS indexing_job_files (
+                job_id INTEGER,
+                file_path TEXT,
+                status TEXT DEFAULT 'pending',
+                PRIMARY KEY (job_id, file_path),
+                FOREIGN KEY (job_id) REFERENCES indexing_jobs(id) ON DELETE CASCADE
+            )
+        """)
         self._migrate_skipped_files_table(cursor)
         self.conn.commit()
 
@@ -205,6 +228,96 @@ class MetadataStore:
             (category,)
         )
         return [row["file_path"] for row in cursor.fetchall()]
+
+    def get_active_indexing_job(self) -> Optional[Dict]:
+        """Get current active or paused indexing job."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT * FROM indexing_jobs
+            WHERE status IN ('pending', 'running', 'paused')
+            ORDER BY id DESC LIMIT 1
+        """)
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def create_indexing_job(
+        self, folder_path: str, max_chunks: int, force_reindex: bool, files_total: int
+    ) -> int:
+        """Create a new indexing job, returns job_id."""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM indexing_jobs WHERE status IN ('pending', 'running', 'paused')")
+        cursor.execute("DELETE FROM indexing_job_files WHERE job_id NOT IN (SELECT id FROM indexing_jobs)")
+        cursor.execute("""
+            INSERT INTO indexing_jobs (folder_path, max_chunks, force_reindex, status, files_total, started_at)
+            VALUES (?, ?, ?, 'running', ?, CURRENT_TIMESTAMP)
+        """, (folder_path, max_chunks, 1 if force_reindex else 0, files_total))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def add_job_files(self, job_id: int, file_paths: List[str]) -> None:
+        """Add files to an indexing job."""
+        cursor = self.conn.cursor()
+        cursor.executemany(
+            "INSERT OR IGNORE INTO indexing_job_files (job_id, file_path, status) VALUES (?, ?, 'pending')",
+            [(job_id, fp) for fp in file_paths]
+        )
+        self.conn.commit()
+
+    def update_job_file_status(self, job_id: int, file_path: str, status: str) -> None:
+        """Update status of a file in an indexing job."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "UPDATE indexing_job_files SET status = ? WHERE job_id = ? AND file_path = ?",
+            (status, job_id, file_path)
+        )
+        self.conn.commit()
+
+    def update_indexing_job_progress(self, job_id: int, files_processed: int) -> None:
+        """Update progress for an indexing job."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            UPDATE indexing_jobs
+            SET files_processed = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (files_processed, job_id))
+        self.conn.commit()
+
+    def update_job_status(self, job_id: int, status: str) -> None:
+        """Update status of an indexing job."""
+        cursor = self.conn.cursor()
+        if status in ('completed', 'cancelled'):
+            cursor.execute("""
+                UPDATE indexing_jobs
+                SET status = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (status, job_id))
+        else:
+            cursor.execute("""
+                UPDATE indexing_jobs
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (status, job_id))
+        self.conn.commit()
+
+    def get_pending_files_for_job(self, job_id: int) -> List[str]:
+        """Get files that haven't been processed yet for this job."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT file_path FROM indexing_job_files WHERE job_id = ? AND status = 'pending'",
+            (job_id,)
+        )
+        return [row["file_path"] for row in cursor.fetchall()]
+
+    def complete_indexing_job(self, job_id: int, status: str = "completed") -> None:
+        """Mark job as completed or cancelled."""
+        self.update_job_status(job_id, status)
+
+    def discard_indexing_job(self, job_id: int) -> None:
+        """Discard an indexing job and its files."""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM indexing_job_files WHERE job_id = ?", (job_id,))
+        cursor.execute("DELETE FROM indexing_jobs WHERE id = ?", (job_id,))
+        self.conn.commit()
 
     def close(self) -> None:
         """Close the database connection."""

@@ -336,3 +336,102 @@ export async function getIndexingResults(): Promise<IndexStats | null> {
   if (data.has_results === false) return null;
   return data as IndexStats;
 }
+
+export interface JobInfo {
+  id: number;
+  folder: string;
+  files_total: number;
+  files_processed: number;
+  status: string;
+  progress_percent: number;
+}
+
+export interface JobStatusResponse {
+  has_incomplete_job: boolean;
+  job_info?: JobInfo;
+}
+
+export async function getJobStatus(): Promise<JobStatusResponse> {
+  const res = await fetch(`${API_BASE}/api/index/job-status`);
+  if (!res.ok) throw new Error("Failed to get job status");
+  return res.json();
+}
+
+export async function pauseIndex(): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/api/index/pause`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to pause indexing");
+  return res.json();
+}
+
+export async function discardJob(): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/api/index/discard-job`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to discard job");
+  return res.json();
+}
+
+export interface ResumeStreamCallbacks {
+  onProgress: (message: string) => void;
+  onStats: (stats: IndexStats) => void;
+  onPaused: (stats: IndexStats) => void;
+  onDone: () => void;
+  onError: (error: string) => void;
+}
+
+export async function streamResume(
+  jobId: number,
+  callbacks: ResumeStreamCallbacks,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/index/resume`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_id: jobId }),
+  });
+
+  if (!res.ok) {
+    callbacks.onError("Failed to resume indexing");
+    return;
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    callbacks.onError("No response body");
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === "progress") {
+            callbacks.onProgress(data.content);
+          } else if (data.type === "stats") {
+            callbacks.onStats(data.content);
+          } else if (data.type === "paused") {
+            callbacks.onPaused(data.content);
+          } else if (data.type === "done") {
+            callbacks.onDone();
+          } else if (data.type === "error") {
+            callbacks.onError(data.content);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
+  }
+}

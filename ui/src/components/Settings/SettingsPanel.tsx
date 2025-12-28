@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Info,
   Square,
+  Play,
+  X,
 } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { FolderPicker } from "./FolderPicker";
@@ -96,8 +98,11 @@ export function SettingsPanel({
     stats,
     status,
     error,
+    incompleteJob,
     startIndexing,
     stopIndexing,
+    resumeIndexing,
+    discardJob,
     indexSkippedFiles,
     clearIndex,
     refreshStatus,
@@ -128,6 +133,20 @@ export function SettingsPanel({
 
   const handleIndexSkipped = () => {
     indexSkippedFiles(maxChunks);
+  };
+
+  const handleResume = () => {
+    resumeIndexing();
+  };
+
+  const handleDiscard = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to discard this incomplete indexing job? You will need to start indexing again.",
+      )
+    ) {
+      discardJob();
+    }
   };
 
   const handleClearIndex = () => {
@@ -180,6 +199,45 @@ export function SettingsPanel({
 
         {activeTab === "indexing" && (
           <>
+            {incompleteJob && !isIndexing && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-800">
+                      Incomplete indexing job found
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      {incompleteJob.files_processed} of{" "}
+                      {incompleteJob.files_total} files processed (
+                      {incompleteJob.progress_percent}%)
+                    </p>
+                    <p
+                      className="text-xs text-blue-500 mt-0.5 truncate"
+                      title={incompleteJob.folder}
+                    >
+                      {incompleteJob.folder}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleResume}
+                      className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
+                    >
+                      <Play className="w-3 h-3" />
+                      Resume
+                    </button>
+                    <button
+                      onClick={handleDiscard}
+                      className="px-2 py-1.5 bg-gray-200 text-gray-600 text-xs rounded hover:bg-gray-300 transition-colors"
+                      title="Discard this job"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Folder to Index

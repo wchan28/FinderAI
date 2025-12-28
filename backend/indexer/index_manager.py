@@ -295,7 +295,8 @@ def index_folder(
     force_reindex: bool = False,
     parallel_workers: int = PARALLEL_WORKERS,
     max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
-    cancel_event: Optional[threading.Event] = None
+    cancel_event: Optional[threading.Event] = None,
+    job_id: Optional[int] = None
 ) -> dict:
     """
     Index all supported files in a folder using parallel processing.
@@ -309,6 +310,7 @@ def index_folder(
         parallel_workers: Number of parallel workers (default: 3)
         max_chunks_per_file: Max chunks per file before skipping (default: 50)
         cancel_event: Optional threading.Event to signal cancellation
+        job_id: Optional existing job ID to resume
 
     Returns:
         Dict with indexing statistics (includes 'cancelled' bool if stopped early)
@@ -319,9 +321,27 @@ def index_folder(
     if metadata_store is None:
         metadata_store = MetadataStore()
 
-    files = scan_folder(folder_path)
+    is_resuming = False
 
-    if progress_callback:
+    if job_id is None:
+        existing_job = metadata_store.get_active_indexing_job()
+        if existing_job and existing_job["folder_path"] == folder_path and existing_job["status"] == "paused":
+            job_id = existing_job["id"]
+            files = metadata_store.get_pending_files_for_job(job_id)
+            is_resuming = True
+            metadata_store.update_job_status(job_id, "running")
+            if progress_callback:
+                progress_callback(f"Resuming indexing: {len(files)} files remaining")
+        else:
+            files = scan_folder(folder_path)
+            job_id = metadata_store.create_indexing_job(folder_path, max_chunks_per_file, force_reindex, len(files))
+            metadata_store.add_job_files(job_id, files)
+    else:
+        files = metadata_store.get_pending_files_for_job(job_id)
+        is_resuming = True
+        metadata_store.update_job_status(job_id, "running")
+
+    if progress_callback and not is_resuming:
         progress_callback(f"Found {len(files)} files to process (workers: {parallel_workers}, max chunks: {max_chunks_per_file})")
 
     stats = {
@@ -367,13 +387,26 @@ def index_folder(
         for future in as_completed(futures):
             if cancel_event and cancel_event.is_set():
                 stats["cancelled"] = True
+                stats["paused"] = True
                 if progress_callback:
-                    progress_callback("Indexing cancelled by user")
+                    progress_callback("Indexing paused")
                 executor.shutdown(wait=False, cancel_futures=True)
+                if job_id is not None:
+                    metadata_store.update_job_status(job_id, "paused")
+                    metadata_store.update_indexing_job_progress(job_id, completed_count)
                 break
 
             completed_count += 1
             result = future.result()
+            file_path = result["file_path"]
+
+            file_status = "completed" if not result.get("error") else "error"
+            if result.get("skipped"):
+                file_status = "skipped"
+            if job_id is not None:
+                metadata_store.update_job_file_status(job_id, file_path, file_status)
+                if completed_count % 10 == 0:
+                    metadata_store.update_indexing_job_progress(job_id, completed_count)
 
             if result["action"] == "skipped_unchanged":
                 stats["skipped_unchanged"] += 1
@@ -427,6 +460,11 @@ def index_folder(
                     )
 
     stats["total_time"] = time.time() - folder_start
+    stats["job_id"] = job_id
+
+    if job_id is not None and not stats.get("paused"):
+        metadata_store.complete_indexing_job(job_id, "completed")
+        metadata_store.update_indexing_job_progress(job_id, completed_count)
 
     if progress_callback and stats["indexed_files"] > 0:
         sorted_times = sorted(

@@ -3,12 +3,16 @@ import {
   streamIndex,
   streamReindex,
   streamIndexSkipped,
+  streamResume,
   getStatus,
   clearIndex as clearIndexApi,
   cancelIndex as cancelIndexApi,
   getIndexingResults,
+  getJobStatus,
+  discardJob as discardJobApi,
   StatusResponse,
   IndexStats,
+  JobInfo,
 } from "../api/client";
 
 export function useIndexing() {
@@ -18,6 +22,7 @@ export function useIndexing() {
   const [stats, setStats] = useState<IndexStats | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [incompleteJob, setIncompleteJob] = useState<JobInfo | null>(null);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -39,9 +44,39 @@ export function useIndexing() {
     }
   }, []);
 
+  const checkIncompleteJob = useCallback(async () => {
+    try {
+      const data = await getJobStatus();
+      if (data.has_incomplete_job && data.job_info) {
+        setIncompleteJob(data.job_info);
+      } else {
+        setIncompleteJob(null);
+      }
+    } catch (err) {
+      console.error("Failed to check incomplete job:", err);
+    }
+  }, []);
+
+  const discardJob = useCallback(async () => {
+    try {
+      await discardJobApi();
+      setIncompleteJob(null);
+    } catch (err) {
+      console.error("Failed to discard job:", err);
+    }
+  }, []);
+
   useEffect(() => {
     restoreResults();
-  }, [restoreResults]);
+    checkIncompleteJob();
+
+    if (window.electronAPI?.onIncompleteIndexing) {
+      const cleanup = window.electronAPI.onIncompleteIndexing((jobInfo) => {
+        setIncompleteJob(jobInfo as JobInfo);
+      });
+      return cleanup;
+    }
+  }, [restoreResults, checkIncompleteJob]);
 
   const stopIndexing = useCallback(async () => {
     try {
@@ -57,6 +92,9 @@ export function useIndexing() {
       setProgress([]);
       setStats(null);
       setError(null);
+      setIncompleteJob(null);
+
+      window.electronAPI?.preventSleep();
 
       await streamIndex(folder, maxChunks, force, {
         onProgress: (message) => {
@@ -67,20 +105,59 @@ export function useIndexing() {
         },
         onCancelled: (newStats) => {
           setStats(newStats);
-          setProgress((prev) => [...prev, "Indexing stopped by user"]);
+          setProgress((prev) => [...prev, "Indexing paused"]);
+          checkIncompleteJob();
         },
         onDone: () => {
           setIsIndexing(false);
+          window.electronAPI?.allowSleep();
           refreshStatus();
         },
         onError: (err) => {
           setError(err);
           setIsIndexing(false);
+          window.electronAPI?.allowSleep();
         },
       });
     },
-    [refreshStatus],
+    [refreshStatus, checkIncompleteJob],
   );
+
+  const resumeIndexing = useCallback(async () => {
+    if (!incompleteJob) return;
+
+    setIsIndexing(true);
+    setProgress([]);
+    setStats(null);
+    setError(null);
+
+    window.electronAPI?.preventSleep();
+
+    await streamResume(incompleteJob.id, {
+      onProgress: (message) => {
+        setProgress((prev) => [...prev, message]);
+      },
+      onStats: (newStats) => {
+        setStats(newStats);
+        setIncompleteJob(null);
+      },
+      onPaused: (newStats) => {
+        setStats(newStats);
+        setProgress((prev) => [...prev, "Indexing paused"]);
+        checkIncompleteJob();
+      },
+      onDone: () => {
+        setIsIndexing(false);
+        window.electronAPI?.allowSleep();
+        refreshStatus();
+      },
+      onError: (err) => {
+        setError(err);
+        setIsIndexing(false);
+        window.electronAPI?.allowSleep();
+      },
+    });
+  }, [incompleteJob, refreshStatus, checkIncompleteJob]);
 
   const reindexAll = useCallback(
     async (maxChunks: number = 50) => {
@@ -168,8 +245,11 @@ export function useIndexing() {
     stats,
     status,
     error,
+    incompleteJob,
     startIndexing,
     stopIndexing,
+    resumeIndexing,
+    discardJob,
     reindexAll,
     indexSkippedFiles,
     clearIndex,

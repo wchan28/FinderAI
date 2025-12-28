@@ -63,6 +63,142 @@ async def cancel_index():
     return {"status": "no_indexing_in_progress"}
 
 
+@router.post("/index/pause")
+async def pause_index():
+    """Pause the current indexing operation (saves state for resume)."""
+    global _cancel_event
+    if _cancel_event is not None:
+        _cancel_event.set()
+        metadata_store = MetadataStore()
+        job = metadata_store.get_active_indexing_job()
+        if job:
+            metadata_store.update_job_status(job["id"], "paused")
+        return {"status": "paused"}
+    return {"status": "no_indexing_in_progress"}
+
+
+@router.get("/index/job-status")
+async def get_job_status():
+    """Get current/incomplete indexing job status."""
+    metadata_store = MetadataStore()
+    job = metadata_store.get_active_indexing_job()
+
+    if job and job["status"] in ("paused", "running"):
+        files_total = job["files_total"] or 0
+        files_processed = job["files_processed"] or 0
+        progress_percent = (files_processed / files_total * 100) if files_total > 0 else 0
+
+        return {
+            "has_incomplete_job": True,
+            "job_info": {
+                "id": job["id"],
+                "folder": job["folder_path"],
+                "files_total": files_total,
+                "files_processed": files_processed,
+                "status": job["status"],
+                "progress_percent": round(progress_percent, 1)
+            }
+        }
+    return {"has_incomplete_job": False}
+
+
+@router.post("/index/discard-job")
+async def discard_job():
+    """Discard the current incomplete indexing job."""
+    metadata_store = MetadataStore()
+    job = metadata_store.get_active_indexing_job()
+    if job:
+        metadata_store.discard_indexing_job(job["id"])
+        return {"status": "discarded"}
+    return {"status": "no_job_to_discard"}
+
+
+class ResumeRequest(BaseModel):
+    job_id: int
+
+
+async def generate_resume_stream(job_id: int):
+    """Generate SSE stream for resuming indexing."""
+    global _cancel_event
+
+    metadata_store = MetadataStore()
+    job = metadata_store.get_active_indexing_job()
+
+    if not job or job["id"] != job_id:
+        yield f"data: {json.dumps({'type': 'error', 'content': 'Job not found or already completed'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+        return
+
+    message_queue: Queue = Queue()
+    _cancel_event = Event()
+    cancel_event = _cancel_event
+
+    def progress_callback(msg: str):
+        message_queue.put(msg)
+
+    def run_indexing():
+        try:
+            stats = index_folder(
+                job["folder_path"],
+                progress_callback=progress_callback,
+                force_reindex=bool(job["force_reindex"]),
+                max_chunks_per_file=job["max_chunks"],
+                cancel_event=cancel_event,
+                job_id=job_id
+            )
+            resume_metadata_store = MetadataStore()
+            resume_metadata_store.save_indexing_results(stats)
+            if stats.get("cancelled") or stats.get("paused"):
+                message_queue.put(("PAUSED", stats))
+            else:
+                message_queue.put(("STATS", stats))
+        except Exception as e:
+            message_queue.put(("ERROR", str(e)))
+        finally:
+            message_queue.put(("DONE", None))
+
+    thread = Thread(target=run_indexing)
+    thread.start()
+
+    try:
+        while True:
+            await asyncio.sleep(0.05)
+
+            while not message_queue.empty():
+                item = message_queue.get()
+
+                if isinstance(item, tuple):
+                    msg_type, data = item
+                    if msg_type == "DONE":
+                        yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+                        thread.join()
+                        return
+                    elif msg_type == "STATS":
+                        yield f"data: {json.dumps({'type': 'stats', 'content': data})}\n\n"
+                    elif msg_type == "PAUSED":
+                        yield f"data: {json.dumps({'type': 'paused', 'content': data})}\n\n"
+                    elif msg_type == "ERROR":
+                        yield f"data: {json.dumps({'type': 'error', 'content': data})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'progress', 'content': item})}\n\n"
+    finally:
+        _cancel_event = None
+
+
+@router.post("/index/resume")
+async def resume_index(request: ResumeRequest):
+    """Resume a paused indexing job with streaming progress updates."""
+    return StreamingResponse(
+        generate_resume_stream(request.job_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 async def generate_index_stream(folder: str, max_chunks: int, force: bool):
     """Generate SSE stream for indexing progress."""
     global _cancel_event
