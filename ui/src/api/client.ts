@@ -298,3 +298,11 @@ export async function clearIndex(): Promise<{ status: string }> {
   if (!res.ok) throw new Error("Failed to clear index");
   return res.json();
 }
+
+export async function getIndexingResults(): Promise<IndexStats | null> {
+  const res = await fetch(`${API_BASE}/api/indexing-results`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.has_results === false) return null;
+  return data as IndexStats;
+}

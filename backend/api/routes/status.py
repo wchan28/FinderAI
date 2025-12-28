@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 from backend.db.vector_store import VectorStore
 from backend.db.metadata_store import MetadataStore
@@ -62,6 +62,49 @@ async def get_status():
         indexed_files=len(files),
         files=file_infos
     )
+
+
+class SkippedFileInfo(BaseModel):
+    file_name: str
+    reason: str
+    chunks_would_be: Optional[int] = None
+
+
+class SkippedByReasonInfo(BaseModel):
+    scanned_image: List[SkippedFileInfo]
+    empty_file: List[SkippedFileInfo]
+    file_too_large: List[SkippedFileInfo]
+    unsupported_type: List[SkippedFileInfo]
+    chunk_limit_exceeded: List[SkippedFileInfo]
+
+
+class IndexingResultsResponse(BaseModel):
+    has_results: bool = True
+    total_files: int
+    indexed_files: int
+    skipped_unchanged: int
+    skipped_limits: int
+    total_chunks: int
+    total_time: float
+    errors: List[str]
+    skipped_files: List[SkippedFileInfo]
+    skipped_by_reason: SkippedByReasonInfo
+
+
+class NoResultsResponse(BaseModel):
+    has_results: bool = False
+
+
+@router.get("/indexing-results")
+async def get_indexing_results():
+    """Get the most recent indexing results."""
+    metadata_store = MetadataStore()
+    results = metadata_store.get_indexing_results()
+
+    if not results:
+        return NoResultsResponse()
+
+    return IndexingResultsResponse(**results)
 
 
 def _format_size(size_bytes: int) -> str:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -25,6 +26,29 @@ class MetadataStore:
                 file_hash TEXT NOT NULL,
                 indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 chunk_count INTEGER DEFAULT 0
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS indexing_results (
+                id INTEGER PRIMARY KEY,
+                total_files INTEGER,
+                indexed_files INTEGER,
+                skipped_unchanged INTEGER,
+                skipped_limits INTEGER,
+                total_chunks INTEGER,
+                total_time REAL,
+                total_embed_time REAL,
+                errors TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS skipped_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_name TEXT,
+                reason TEXT,
+                chunks_would_be INTEGER,
+                category TEXT
             )
         """)
         self.conn.commit()
@@ -68,6 +92,97 @@ class MetadataStore:
         """Clear all indexed files from the metadata store."""
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM indexed_files")
+        self.conn.commit()
+
+    def save_indexing_results(self, stats: Dict) -> None:
+        """Save indexing results, replacing any previous results."""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM indexing_results")
+        cursor.execute("DELETE FROM skipped_files")
+
+        cursor.execute("""
+            INSERT INTO indexing_results (
+                id, total_files, indexed_files, skipped_unchanged, skipped_limits,
+                total_chunks, total_time, total_embed_time, errors
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            stats.get("total_files", 0),
+            stats.get("indexed_files", 0),
+            stats.get("skipped_unchanged", 0),
+            stats.get("skipped_limits", 0),
+            stats.get("total_chunks", 0),
+            stats.get("total_time", 0.0),
+            stats.get("total_embed_time", 0.0),
+            json.dumps(stats.get("errors", [])),
+        ))
+
+        skipped_by_reason = stats.get("skipped_by_reason", {})
+        for category, files in skipped_by_reason.items():
+            for f in files:
+                cursor.execute("""
+                    INSERT INTO skipped_files (file_name, reason, chunks_would_be, category)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    f.get("file_name"),
+                    f.get("reason"),
+                    f.get("chunks_would_be"),
+                    category,
+                ))
+
+        self.conn.commit()
+
+    def get_indexing_results(self) -> Optional[Dict]:
+        """Get the most recent indexing results."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM indexing_results WHERE id = 1")
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        cursor.execute("SELECT * FROM skipped_files")
+        skipped_rows = cursor.fetchall()
+
+        skipped_by_reason: Dict[str, List[Dict]] = {
+            "scanned_image": [],
+            "empty_file": [],
+            "file_too_large": [],
+            "unsupported_type": [],
+            "chunk_limit_exceeded": [],
+        }
+        skipped_files: List[Dict] = []
+
+        for sf in skipped_rows:
+            entry: Dict = {
+                "file_name": sf["file_name"],
+                "reason": sf["reason"],
+            }
+            if sf["chunks_would_be"] is not None:
+                entry["chunks_would_be"] = sf["chunks_would_be"]
+
+            category = sf["category"]
+            if category in skipped_by_reason:
+                skipped_by_reason[category].append(entry)
+
+            if category == "chunk_limit_exceeded":
+                skipped_files.append(entry)
+
+        return {
+            "total_files": row["total_files"],
+            "indexed_files": row["indexed_files"],
+            "skipped_unchanged": row["skipped_unchanged"],
+            "skipped_limits": row["skipped_limits"],
+            "total_chunks": row["total_chunks"],
+            "total_time": row["total_time"],
+            "errors": json.loads(row["errors"]) if row["errors"] else [],
+            "skipped_files": skipped_files,
+            "skipped_by_reason": skipped_by_reason,
+        }
+
+    def clear_indexing_results(self) -> None:
+        """Clear saved indexing results."""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM indexing_results")
+        cursor.execute("DELETE FROM skipped_files")
         self.conn.commit()
 
     def close(self) -> None:

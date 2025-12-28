@@ -28,6 +28,7 @@ async def clear_index():
 
     vector_store.clear()
     metadata_store.clear()
+    metadata_store.clear_indexing_results()
     bm25_index.clear()
 
     store = _get_config_store()
@@ -70,6 +71,8 @@ async def generate_index_stream(folder: str, max_chunks: int, force: bool):
                 force_reindex=force,
                 max_chunks_per_file=max_chunks
             )
+            metadata_store = MetadataStore()
+            metadata_store.save_indexing_results(stats)
             message_queue.put(("STATS", stats))
         except Exception as e:
             message_queue.put(("ERROR", str(e)))
@@ -136,6 +139,8 @@ async def generate_reindex_stream(max_chunks: int):
                 progress_callback=progress_callback,
                 max_chunks_per_file=max_chunks
             )
+            reindex_metadata_store = MetadataStore()
+            reindex_metadata_store.save_indexing_results(stats)
             message_queue.put(("STATS", stats))
         except Exception as e:
             message_queue.put(("ERROR", str(e)))

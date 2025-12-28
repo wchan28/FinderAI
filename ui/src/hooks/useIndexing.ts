@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   streamIndex,
   streamReindex,
   getStatus,
   clearIndex as clearIndexApi,
+  getIndexingResults,
   StatusResponse,
   IndexStats,
 } from "../api/client";
@@ -23,6 +24,21 @@ export function useIndexing() {
       console.error("Failed to get status:", err);
     }
   }, []);
+
+  const restoreResults = useCallback(async () => {
+    try {
+      const savedStats = await getIndexingResults();
+      if (savedStats) {
+        setStats(savedStats);
+      }
+    } catch (err) {
+      console.error("Failed to restore indexing results:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    restoreResults();
+  }, [restoreResults]);
 
   const startIndexing = useCallback(
     async (folder: string, maxChunks: number = 50, force: boolean = false) => {
