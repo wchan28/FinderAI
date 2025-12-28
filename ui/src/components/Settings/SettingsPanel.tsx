@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   Database,
   FileText,
-  RefreshCw,
   Sliders,
   Trash2,
   ChevronDown,
@@ -97,7 +96,6 @@ export function SettingsPanel({
     error,
     startIndexing,
     stopIndexing,
-    reindexAll,
     indexSkippedFiles,
     clearIndex,
     refreshStatus,
@@ -117,10 +115,6 @@ export function SettingsPanel({
 
   const handleStop = () => {
     stopIndexing();
-  };
-
-  const handleReindex = () => {
-    reindexAll(maxChunks);
   };
 
   const handleIndexSkipped = () => {
@@ -223,14 +217,6 @@ export function SettingsPanel({
                   Index Folder
                 </button>
               )}
-              <button
-                onClick={handleReindex}
-                disabled={isIndexing || !status?.indexed_files}
-                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Reindex
-              </button>
               <button
                 onClick={handleClearIndex}
                 disabled={isIndexing || !status?.indexed_files}
