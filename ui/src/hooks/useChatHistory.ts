@@ -56,9 +56,7 @@ export function useChatHistory() {
     return loadFromStorage().conversations;
   });
   const [activeConversationId, setActiveConversationId] =
-    useState<ConversationId | null>(() => {
-      return loadFromStorage().activeConversationId;
-    });
+    useState<ConversationId | null>(null);
 
   useEffect(() => {
     saveToStorage({ conversations, activeConversationId });

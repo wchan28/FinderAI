@@ -181,7 +181,12 @@ function App() {
           </span>
         </div>
       )}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {!isSidebarOpen && (
+          <div className="absolute top-12 left-3 z-10">
+            <SidebarToggle onClick={handleToggleSidebar} />
+          </div>
+        )}
         <ChatSidebar
           isOpen={isSidebarOpen}
           onToggle={handleToggleSidebar}
@@ -193,9 +198,7 @@ function App() {
           onDeleteConversation={deleteConversation}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="drag-region h-10 flex-shrink-0 flex items-end px-2 pb-2">
-            {!isSidebarOpen && <SidebarToggle onClick={handleToggleSidebar} />}
-          </div>
+          <div className="drag-region h-10 flex-shrink-0" />
           <div className="flex-1 overflow-hidden">
             <ChatContainer
               messages={messages}
