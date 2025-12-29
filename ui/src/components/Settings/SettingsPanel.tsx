@@ -415,6 +415,30 @@ export function SettingsPanel({
                     const match = err.match(/Error indexing .*\/(.+?): (.+)/);
                     const fileName = match ? match[1] : "Unknown file";
                     const reason = match ? match[2] : err;
+                    const getReadableError = (error: string): string => {
+                      if (
+                        error.includes("not a zip file") ||
+                        error.includes("BadZipFile")
+                      ) {
+                        return "File appears to be corrupted or incomplete";
+                      }
+                      if (
+                        error.includes("cryptography") &&
+                        error.includes("AES")
+                      ) {
+                        return "File is password-protected or encrypted";
+                      }
+                      if (
+                        error.includes("max allowed") ||
+                        error.includes("too large") ||
+                        error.includes("exceeds")
+                      ) {
+                        return "File content exceeds size limit";
+                      }
+                      return error.length > 60
+                        ? error.slice(0, 60) + "..."
+                        : error;
+                    };
                     return (
                       <div key={i} className="text-xs">
                         <span className="font-medium">{fileName}</span>
@@ -422,9 +446,7 @@ export function SettingsPanel({
                           className="text-red-600 ml-1 block truncate"
                           title={reason}
                         >
-                          {reason.length > 60
-                            ? reason.slice(0, 60) + "..."
-                            : reason}
+                          {getReadableError(reason)}
                         </span>
                       </div>
                     );
