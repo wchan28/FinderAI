@@ -12,6 +12,7 @@ interface ElectronAPI {
   selectFolder: () => Promise<string | null>;
   getApiUrl: () => Promise<string>;
   openFile: (filePath: string) => Promise<string>;
+  openExternal: (url: string) => Promise<void>;
   preventSleep: () => Promise<{ blocked: boolean }>;
   allowSleep: () => Promise<{ stopped: boolean }>;
   isSleepPrevented: () => Promise<{ prevented: boolean }>;

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   selectFolder: () => ipcRenderer.invoke("select-folder"),
   getApiUrl: () => ipcRenderer.invoke("get-api-url"),
   openFile: (filePath: string) => ipcRenderer.invoke("open-file", filePath),
+  openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
   preventSleep: () => ipcRenderer.invoke("prevent-sleep"),
   allowSleep: () => ipcRenderer.invoke("allow-sleep"),
   isSleepPrevented: () => ipcRenderer.invoke("is-sleep-prevented"),

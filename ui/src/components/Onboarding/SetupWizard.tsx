@@ -98,20 +98,23 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                     <span className="text-gray-400">1.</span>
                     <span>
                       Go to{" "}
-                      <a
-                        href="https://dash.voyageai.com/api-keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.electronAPI?.openExternal(
+                            "https://dash.voyageai.com/api-keys",
+                          )
+                        }
                         className="text-blue-500 hover:underline inline-flex items-center gap-1"
                       >
                         Voyage AI Dashboard
                         <ExternalLink className="w-3 h-3" />
-                      </a>
+                      </button>
                     </span>
                   </li>
                   <li className="flex gap-2">
                     <span className="text-gray-400">2.</span>
-                    <span>Sign up or log in (free tier available)</span>
+                    <span>Sign up or log in (free tier works great)</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="text-gray-400">3.</span>

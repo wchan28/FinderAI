@@ -280,6 +280,11 @@ ipcMain.handle("open-file", async (_, filePath: string) => {
   return result;
 });
 
+ipcMain.handle("open-external", async (_, url: string) => {
+  console.log("[open-external] Opening URL:", url);
+  await shell.openExternal(url);
+});
+
 ipcMain.handle("prevent-sleep", () => {
   const blocked = preventSleep();
   return { blocked };
