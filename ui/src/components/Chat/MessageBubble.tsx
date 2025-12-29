@@ -30,7 +30,10 @@ async function getIndexedFolder(): Promise<string | null> {
   return folderFetchPromise;
 }
 
-function buildAbsolutePath(relativePath: string, indexedFolder: string | null): string {
+function buildAbsolutePath(
+  relativePath: string,
+  indexedFolder: string | null,
+): string {
   if (!indexedFolder) {
     return relativePath;
   }
@@ -82,7 +85,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const showThinkingIndicator =
     message.isStreaming && !message.content && message.status;
   const filePathLookup = buildFilePathLookup(message.sources);
-  const [indexedFolder, setIndexedFolder] = useState<string | null>(cachedIndexedFolder);
+  const [indexedFolder, setIndexedFolder] = useState<string | null>(
+    cachedIndexedFolder,
+  );
 
   useEffect(() => {
     if (cachedIndexedFolder === null) {
