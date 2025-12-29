@@ -5,7 +5,8 @@ import { SettingsButton } from "./components/Settings/SettingsButton";
 import { SetupWizard } from "./components/Onboarding/SetupWizard";
 import { ChatSidebar } from "./components/Sidebar/ChatSidebar";
 import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
-import { checkHealth } from "./api/client";
+import { checkHealth, getStatus } from "./api/client";
+import type { StatusResponse } from "./api/client";
 import { useChat } from "./hooks/useChat";
 import type { Message } from "./hooks/useChat";
 import { useChatHistory } from "./hooks/useChatHistory";
@@ -26,6 +27,7 @@ function App() {
     return stored !== "false";
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [indexStatus, setIndexStatus] = useState<StatusResponse | null>(null);
 
   const {
     conversations,
@@ -87,12 +89,24 @@ function App() {
     });
   }, []);
 
+  const refreshIndexStatus = useCallback(async () => {
+    try {
+      const status = await getStatus();
+      setIndexStatus(status);
+    } catch {
+      // Ignore - status won't update
+    }
+  }, []);
+
   useEffect(() => {
     const checkBackend = async () => {
       try {
         const health = await checkHealth();
         setBackendStatus("ready");
         setLlmReady(health.llm_ready);
+
+        const status = await getStatus();
+        setIndexStatus(status);
 
         const setupComplete = localStorage.getItem(SETUP_COMPLETE_KEY);
         if (health.needs_setup && !setupComplete) {
@@ -205,6 +219,8 @@ function App() {
               isLoading={isLoading}
               onSendMessage={handleSendMessage}
               onStopGeneration={stopGeneration}
+              hasIndexedFiles={(indexStatus?.indexed_files ?? 0) > 0}
+              onOpenSettings={() => setIsSettingsOpen(true)}
             />
           </div>
         </div>
@@ -213,7 +229,10 @@ function App() {
       <SettingsButton onClick={() => setIsSettingsOpen(true)} />
       <SettingsPanel
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => {
+          setIsSettingsOpen(false);
+          refreshIndexStatus();
+        }}
         onRunSetup={handleRunSetup}
       />
     </div>

@@ -7,6 +7,8 @@ type ChatContainerProps = {
   isLoading: boolean;
   onSendMessage: (content: string) => void;
   onStopGeneration: () => void;
+  hasIndexedFiles: boolean;
+  onOpenSettings: () => void;
 };
 
 export function ChatContainer({
@@ -14,10 +16,16 @@ export function ChatContainer({
   isLoading,
   onSendMessage,
   onStopGeneration,
+  hasIndexedFiles,
+  onOpenSettings,
 }: ChatContainerProps) {
   return (
     <div className="flex flex-col h-full">
-      <MessageList messages={messages} />
+      <MessageList
+        messages={messages}
+        hasIndexedFiles={hasIndexedFiles}
+        onOpenSettings={onOpenSettings}
+      />
       <InputArea
         onSend={onSendMessage}
         onStop={onStopGeneration}
