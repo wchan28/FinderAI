@@ -43,7 +43,7 @@ CRITICAL INSTRUCTIONS:
 1. Use ONLY the information provided in the document excerpts below - do not use external knowledge
 2. When the user mentions a company or file name, prioritize documents from that source
    - Match names flexibly: "elililly" = "Eli Lilly" = "EliLilly_Protocol", "ucb" = "UCB"
-3. ALWAYS cite which file(s) your answer comes from using the exact filename
+3. Do NOT include source citations in your response - sources are displayed separately in the UI
 4. If information exists in the provided documents, you MUST use it - do not claim it's missing
 5. Only say "not found" if you've thoroughly checked ALL provided documents and the information truly does not exist
 6. When multiple documents are provided, answer from the most relevant one based on the user's query
@@ -56,9 +56,7 @@ RAG_USER_PROMPT_TEMPLATE = """Based on the following document excerpts from my f
 
 ---
 
-Please answer this question: {query}
-
-Remember to cite the source file(s) in your answer."""
+Please answer this question: {query}"""
 
 FILE_LISTING_PROMPT_TEMPLATE = """The user asked for files matching: {query}
 
