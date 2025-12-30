@@ -37,6 +37,30 @@ DEFAULT_EMBEDDING_PROVIDER = "voyage"
 DEFAULT_EMBEDDING_MODEL = "voyage-3-large"
 DEFAULT_RERANKING_PROVIDER = "cohere"
 DEFAULT_RERANKING_MODEL = "rerank-v4.0-fast"
+DEFAULT_INITIAL_RESULTS = 100
+
+
+def get_scaled_initial_results(chunk_count: int, base: int = DEFAULT_INITIAL_RESULTS) -> int:
+    """
+    Scale initial_results based on corpus size to maintain search quality.
+
+    At small corpus sizes, a fixed number of results provides good coverage.
+    As corpus grows, we need more candidates for the reranker to find relevant chunks.
+
+    Scaling tiers:
+    - < 1,000 chunks: use base (default 100)
+    - 1,000 - 5,000 chunks: 150
+    - 5,000 - 10,000 chunks: 200
+    - > 10,000 chunks: 250 (capped to balance quality vs reranking cost)
+    """
+    if chunk_count < 1000:
+        return base
+    elif chunk_count < 5000:
+        return max(base, 150)
+    elif chunk_count < 10000:
+        return max(base, 200)
+    else:
+        return max(base, 250)
 
 
 @dataclass
@@ -50,7 +74,7 @@ class ProviderConfig:
     reranking_provider: str = DEFAULT_RERANKING_PROVIDER
     reranking_model: str = DEFAULT_RERANKING_MODEL
     hybrid_search_enabled: bool = True
-    initial_results: int = 50
+    initial_results: int = DEFAULT_INITIAL_RESULTS
     rerank_to: int = 10
 
     openai_api_key: Optional[str] = field(default=None, repr=False)
@@ -139,7 +163,7 @@ def get_config() -> ProviderConfig:
         reranking_provider=store.get("reranking_provider", DEFAULT_RERANKING_PROVIDER),
         reranking_model=store.get("reranking_model", DEFAULT_RERANKING_MODEL),
         hybrid_search_enabled=store.get("hybrid_search_enabled", "true").lower() == "true",
-        initial_results=int(store.get("initial_results", "50")),
+        initial_results=int(store.get("initial_results", str(DEFAULT_INITIAL_RESULTS))),
         rerank_to=int(store.get("rerank_to", "10")),
     )
 

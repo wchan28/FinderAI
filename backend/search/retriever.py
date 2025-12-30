@@ -9,6 +9,7 @@ from typing import List, Dict, Optional, Tuple
 from backend.db.vector_store import VectorStore
 from backend.indexer.embedder import generate_embedding
 from backend.providers import get_config, get_reranking_provider
+from backend.providers.config import get_scaled_initial_results
 from backend.providers.reranking.base import BaseRerankingProvider
 
 
@@ -329,27 +330,20 @@ def search_documents(
     Search indexed documents for content matching the query.
 
     Uses hybrid search (vector + BM25) and optional reranking.
+    Dynamically scales initial_results based on corpus size for better coverage.
     """
     if vector_store is None:
         vector_store = VectorStore()
 
     config = get_config()
+    chunk_count = vector_store.count()
+    scaled_initial = get_scaled_initial_results(chunk_count, config.initial_results)
+
     indexed_files = vector_store.get_indexed_files()
 
-    exact_file = _extract_exact_filename(query, indexed_files)
-    if exact_file:
-        results = hybrid_search(
-            query,
-            vector_store,
-            n_results=config.initial_results,
-            file_paths=[exact_file],
-        )
-        formatted = _format_search_results(results)
-
-        if use_reranking:
-            return rerank_results(query, formatted, top_n=n_results)
-        return formatted[:n_results]
-
+    # Check file hints FIRST (e.g., "elililly" → EliLilly_Protocol.pdf)
+    # This takes priority over exact filename matching to avoid cases where
+    # generic words like "protocol" accidentally match "Protocol.pdf"
     file_hints, is_protocol_query = _extract_file_hints(query)
     if file_hints:
         hint_matching_files = _get_hint_matching_files(
@@ -359,7 +353,7 @@ def search_documents(
             results = hybrid_search(
                 query,
                 vector_store,
-                n_results=config.initial_results,
+                n_results=scaled_initial,
                 file_paths=list(hint_matching_files),
             )
             formatted = _format_search_results(results)
@@ -368,10 +362,25 @@ def search_documents(
                 return rerank_results(query, formatted, top_n=n_results)
             return formatted[:n_results]
 
+    # Only check exact filename if no file hints matched
+    exact_file = _extract_exact_filename(query, indexed_files)
+    if exact_file:
+        results = hybrid_search(
+            query,
+            vector_store,
+            n_results=scaled_initial,
+            file_paths=[exact_file],
+        )
+        formatted = _format_search_results(results)
+
+        if use_reranking:
+            return rerank_results(query, formatted, top_n=n_results)
+        return formatted[:n_results]
+
     results = hybrid_search(
         query,
         vector_store,
-        n_results=config.initial_results,
+        n_results=scaled_initial,
     )
     formatted = _format_search_results(results)
 
@@ -486,6 +495,24 @@ def get_context_for_query(
     Combines semantic search with keyword-based search for section headers.
     Uses hybrid search and reranking for better results.
     """
+    context, _ = get_context_and_sources_for_query(query, vector_store, n_results)
+    return context
+
+
+def get_context_and_sources_for_query(
+    query: str,
+    vector_store: Optional[VectorStore] = None,
+    n_results: int = 10
+) -> Tuple[str, List[Dict]]:
+    """
+    Get formatted context string and source results for RAG prompt.
+
+    Combines semantic search with keyword-based search for section headers.
+    Uses hybrid search and reranking for better results.
+
+    Returns:
+        Tuple of (context_string, list_of_source_results)
+    """
     if vector_store is None:
         vector_store = VectorStore()
 
@@ -541,7 +568,7 @@ def get_context_for_query(
     results = results[:n_results]
 
     if not results:
-        return "No relevant documents found."
+        return "No relevant documents found.", []
 
     results.sort(key=lambda r: (
         -r.get('relevance_score', r.get('rerank_score', 0)),
@@ -558,7 +585,7 @@ def get_context_for_query(
             f"Content: {r['text']}\n"
         )
 
-    return "\n---\n".join(context_parts)
+    return "\n---\n".join(context_parts), results
 
 
 def get_unique_files_for_query(

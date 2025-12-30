@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, List, Dict, Generator
+from typing import Optional, List, Dict, Generator, Tuple, Union
 
 from backend.db.vector_store import VectorStore
-from backend.search.retriever import search_documents, get_context_for_query, search_files_by_name
+from backend.search.retriever import search_documents, get_context_for_query, get_context_and_sources_for_query, search_files_by_name
 from backend.providers import get_llm_provider, get_config
 from backend.providers.llm.base import BaseLLMProvider, Message
 
@@ -166,6 +166,94 @@ def get_answer(
     ]
 
     return provider.generate(messages, stream=stream)
+
+
+def get_answer_with_sources(
+    query: str,
+    vector_store: Optional[VectorStore] = None,
+    n_context_results: int = 5,
+    stream: bool = False,
+    model: Optional[str] = None
+) -> Tuple[Union[str, Generator[str, None, None]], List[Dict]]:
+    """
+    Get an answer to a query using RAG, along with the sources used.
+
+    This ensures the sources shown to the user match the context sent to the LLM.
+
+    Args:
+        query: The user's question
+        vector_store: Optional VectorStore instance
+        n_context_results: Number of context chunks to retrieve
+        stream: If True, return a generator that yields response chunks
+        model: Optional model name to override config
+
+    Returns:
+        Tuple of (LLM response or generator, list of source dicts)
+    """
+    if vector_store is None:
+        vector_store = VectorStore()
+
+    if is_file_content_query(query):
+        file_matches = search_files_by_content(query, vector_store)
+        if file_matches:
+            response = _format_file_listing_response(file_matches, query, by_content=True)
+            sources = [
+                {
+                    "file_name": m["file_name"],
+                    "file_path": m["file_path"],
+                    "slide_number": 0,
+                    "relevance_score": m["relevance_score"]
+                }
+                for m in file_matches
+            ]
+            if stream:
+                return iter([response]), sources
+            return response, sources
+
+    if is_file_listing_query(query):
+        file_matches = search_files_by_name(query, vector_store)
+        if file_matches:
+            response = _format_file_listing_response(file_matches, query)
+            sources = [
+                {
+                    "file_name": m["file_name"],
+                    "file_path": m["file_path"],
+                    "slide_number": 0,
+                    "relevance_score": 1.0
+                }
+                for m in file_matches
+            ]
+            if stream:
+                return iter([response]), sources
+            return response, sources
+
+    context, source_results = get_context_and_sources_for_query(query, vector_store, n_context_results)
+
+    sources = []
+    seen_files = set()
+    for r in source_results:
+        if r["file_path"] not in seen_files:
+            sources.append({
+                "file_name": r["file_name"],
+                "file_path": r["file_path"],
+                "slide_number": r.get("slide_number", 0),
+                "relevance_score": r.get("relevance_score", r.get("rerank_score", 0.5))
+            })
+            seen_files.add(r["file_path"])
+
+    user_prompt = RAG_USER_PROMPT_TEMPLATE.format(
+        context=context,
+        query=query
+    )
+
+    provider = get_provider(model)
+
+    messages = [
+        Message(role="system", content=RAG_SYSTEM_PROMPT),
+        Message(role="user", content=user_prompt),
+    ]
+
+    return provider.generate(messages, stream=stream), sources
 
 
 def chat(
