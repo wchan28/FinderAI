@@ -23,16 +23,6 @@ SECTION_KEYWORDS = {
     "schedule": "Schedule",
 }
 
-FILE_HINTS = {
-    "eli lilly": ["elililly", "lilly"],
-    "elililly": ["elililly", "lilly"],
-    "lilly": ["elililly", "lilly"],
-    "ucb": ["ucb"],
-    "incyte": ["incyte"],
-}
-
-PROTOCOL_KEYWORDS = ["protocol", "study protocol"]
-
 
 def reciprocal_rank_fusion(
     ranked_lists: List[List[Tuple[str, float]]],
@@ -195,70 +185,6 @@ def rerank_results(
     return final_results
 
 
-def _extract_exact_filename(query: str, indexed_files: List[str]) -> Optional[str]:
-    """Extract exact filename if explicitly mentioned in query."""
-    query_lower = query.lower()
-
-    for file_path in indexed_files:
-        file_name = Path(file_path).name.lower()
-        file_name_no_ext = Path(file_path).stem.lower()
-
-        if file_name in query_lower or file_name_no_ext in query_lower:
-            return file_path
-
-        normalized_name = file_name.replace("_", "").replace(" ", "").replace("-", "")
-        normalized_query = query_lower.replace("_", "").replace(" ", "").replace("-", "")
-        if normalized_name in normalized_query:
-            return file_path
-
-    return None
-
-
-def _extract_file_hints(query: str) -> tuple[List[str], bool]:
-    """Extract file hints and whether user is asking for a protocol document."""
-    query_lower = query.lower()
-    hints = []
-    is_protocol_query = any(kw in query_lower for kw in PROTOCOL_KEYWORDS)
-
-    for name, patterns in FILE_HINTS.items():
-        if name in query_lower:
-            for p in patterns:
-                if p not in hints:
-                    hints.append(p)
-
-    return hints, is_protocol_query
-
-
-def _filter_results_by_file_hint(
-    results: List[Dict],
-    hints: List[str],
-    is_protocol_query: bool = False,
-    min_results: int = 3
-) -> List[Dict]:
-    """Filter results to prioritize files matching hints."""
-    if not hints:
-        return results
-
-    matching = []
-    non_matching = []
-
-    for r in results:
-        file_path_lower = r['file_path'].lower().replace(" ", "").replace("_", "")
-        if any(hint in file_path_lower for hint in hints):
-            matching.append(r)
-        else:
-            non_matching.append(r)
-
-    if is_protocol_query and matching:
-        protocol_matches = [r for r in matching if "protocol" in r['file_path'].lower()]
-        if protocol_matches:
-            matching = protocol_matches
-
-    if len(matching) >= min_results:
-        return matching
-    return matching + non_matching[:min_results - len(matching)]
-
-
 def _extract_search_terms(query: str) -> List[str]:
     """Extract search terms from query, handling camelCase/PascalCase."""
     terms = []
@@ -339,44 +265,6 @@ def search_documents(
     chunk_count = vector_store.count()
     scaled_initial = get_scaled_initial_results(chunk_count, config.initial_results)
 
-    indexed_files = vector_store.get_indexed_files()
-
-    # Check file hints FIRST (e.g., "elililly" → EliLilly_Protocol.pdf)
-    # This takes priority over exact filename matching to avoid cases where
-    # generic words like "protocol" accidentally match "Protocol.pdf"
-    file_hints, is_protocol_query = _extract_file_hints(query)
-    if file_hints:
-        hint_matching_files = _get_hint_matching_files(
-            vector_store, file_hints, is_protocol_query
-        )
-        if hint_matching_files:
-            results = hybrid_search(
-                query,
-                vector_store,
-                n_results=scaled_initial,
-                file_paths=list(hint_matching_files),
-            )
-            formatted = _format_search_results(results)
-
-            if use_reranking:
-                return rerank_results(query, formatted, top_n=n_results)
-            return formatted[:n_results]
-
-    # Only check exact filename if no file hints matched
-    exact_file = _extract_exact_filename(query, indexed_files)
-    if exact_file:
-        results = hybrid_search(
-            query,
-            vector_store,
-            n_results=scaled_initial,
-            file_paths=[exact_file],
-        )
-        formatted = _format_search_results(results)
-
-        if use_reranking:
-            return rerank_results(query, formatted, top_n=n_results)
-        return formatted[:n_results]
-
     results = hybrid_search(
         query,
         vector_store,
@@ -418,27 +306,6 @@ def _merge_and_dedupe(
             merged.append(r)
 
     return merged
-
-
-def _get_hint_matching_files(
-    vector_store: VectorStore,
-    file_hints: List[str],
-    is_protocol_query: bool
-) -> set[str]:
-    """Get files matching the file hints."""
-    all_files = vector_store.get_indexed_files()
-    hint_matching_files = set()
-
-    for f in all_files:
-        path_lower = f.lower().replace(" ", "").replace("_", "")
-        if any(hint in path_lower for hint in file_hints):
-            if is_protocol_query:
-                if "protocol" in f.lower():
-                    hint_matching_files.add(f)
-            else:
-                hint_matching_files.add(f)
-
-    return hint_matching_files
 
 
 def _expand_to_adjacent_pages(
@@ -523,16 +390,8 @@ def get_context_and_sources_for_query(
     if matching_section_count > 1:
         n_results = max(n_results, matching_section_count * 5)
 
-    file_hints, is_protocol_query = _extract_file_hints(query)
     results = search_documents(query, vector_store, n_results=config.rerank_to, use_reranking=True)
-
-    if file_hints:
-        hint_matching_files = _get_hint_matching_files(
-            vector_store, file_hints, is_protocol_query
-        )
-        relevant_files = hint_matching_files if hint_matching_files else {r['file_path'] for r in results}
-    else:
-        relevant_files = {r['file_path'] for r in results}
+    relevant_files = {r['file_path'] for r in results}
 
     matching_keywords = [
         (keyword, search_term)
