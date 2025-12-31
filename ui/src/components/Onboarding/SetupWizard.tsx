@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { saveApiKey, getSettings } from "../../api/client";
+import { useAnalytics } from "../../providers/AnalyticsProvider";
 import {
   Search,
   Sparkles,
@@ -24,6 +25,16 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showVoyageKey, setShowVoyageKey] = useState(false);
+  const { trackEvent } = useAnalytics();
+
+  const handleVoyageDashboardClick = () => {
+    trackEvent({
+      eventType: "voyage",
+      eventName: "dashboard_click",
+      metadata: { source: "setup_wizard" },
+    });
+    window.electronAPI?.openExternal("https://dash.voyageai.com/api-keys");
+  };
 
   const verifyAndSaveEmbeddingKey = async () => {
     if (!voyageKey.trim()) {
@@ -38,6 +49,11 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       await saveApiKey("voyage", voyageKey.trim());
       const settings = await getSettings();
       if (settings.has_voyage_key) {
+        trackEvent({
+          eventType: "voyage",
+          eventName: "api_key_configured",
+          metadata: { source: "setup_wizard" },
+        });
         setStep("complete");
       } else {
         setError("Failed to save API key. Please try again.");
@@ -100,11 +116,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                       Go to{" "}
                       <button
                         type="button"
-                        onClick={() =>
-                          window.electronAPI?.openExternal(
-                            "https://dash.voyageai.com/api-keys",
-                          )
-                        }
+                        onClick={handleVoyageDashboardClick}
                         className="text-blue-500 hover:underline inline-flex items-center gap-1"
                       >
                         Voyage AI Dashboard

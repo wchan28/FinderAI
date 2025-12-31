@@ -21,6 +21,7 @@ import { FolderPicker } from "./FolderPicker";
 import { ProgressBar } from "../Indexing/ProgressBar";
 import { ProviderSettings } from "./ProviderSettings";
 import { useIndexing } from "../../hooks/useIndexing";
+import { useAnalytics } from "../../providers/AnalyticsProvider";
 import { getSettings, saveApiKey } from "../../api/client";
 import type { SkippedByReason, SkippedFile } from "../../api/client";
 
@@ -119,6 +120,7 @@ export function SettingsPanel({
     clearIndex,
     refreshStatus,
   } = useIndexing();
+  const { trackEvent } = useAnalytics();
 
   useEffect(() => {
     if (isOpen) {
@@ -136,6 +138,20 @@ export function SettingsPanel({
     }
   }, [isOpen, refreshStatus]);
 
+  useEffect(() => {
+    if (stats && !isIndexing && stats.indexed_files > 0) {
+      trackEvent({
+        eventType: "embedding",
+        eventName: "indexing_completed",
+        metadata: {
+          files_indexed: stats.indexed_files,
+          total_chunks: stats.total_chunks,
+          total_time: stats.total_time,
+        },
+      });
+    }
+  }, [stats, isIndexing, trackEvent]);
+
   const handleSaveVoyageKey = async () => {
     if (!voyageKey.trim()) return;
 
@@ -146,6 +162,11 @@ export function SettingsPanel({
       await saveApiKey("voyage", voyageKey.trim());
       const settings = await getSettings();
       if (settings.has_voyage_key) {
+        trackEvent({
+          eventType: "voyage",
+          eventName: "api_key_configured",
+          metadata: { source: "settings", is_replacement: hasVoyageKey },
+        });
         setHasVoyageKey(true);
         setVoyageKey("");
         setKeySaveStatus("success");

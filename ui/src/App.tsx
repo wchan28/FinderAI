@@ -5,6 +5,7 @@ import { SettingsButton } from "./components/Settings/SettingsButton";
 import { SetupWizard } from "./components/Onboarding/SetupWizard";
 import { ChatSidebar } from "./components/Sidebar/ChatSidebar";
 import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
+import { AuthGate } from "./components/Auth/AuthGate";
 import { checkHealth, getStatus } from "./api/client";
 import type { StatusResponse } from "./api/client";
 import { useChat } from "./hooks/useChat";
@@ -167,75 +168,81 @@ function App() {
   }
 
   if (showSetupWizard) {
-    return <SetupWizard onComplete={handleSetupComplete} />;
+    return (
+      <AuthGate>
+        <SetupWizard onComplete={handleSetupComplete} />
+      </AuthGate>
+    );
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      {needsSetup && (
-        <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 no-drag" />
-          <span className="no-drag">
-            API keys not configured.{" "}
-            <button
-              onClick={handleRunSetup}
-              className="underline hover:no-underline font-medium"
-            >
-              Run setup
-            </button>{" "}
-            to enable search.
-          </span>
-        </div>
-      )}
-      {!needsSetup && !llmReady && (
-        <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 no-drag" />
-          <span className="no-drag">
-            LLM not configured. Chat functionality may be limited.
-          </span>
-        </div>
-      )}
-      <div className="flex-1 flex overflow-hidden relative">
-        {!isSidebarOpen && (
-          <div className="absolute top-12 left-3 z-10">
-            <SidebarToggle onClick={handleToggleSidebar} />
+    <AuthGate>
+      <div className="h-full flex flex-col bg-white">
+        {needsSetup && (
+          <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 no-drag" />
+            <span className="no-drag">
+              API keys not configured.{" "}
+              <button
+                onClick={handleRunSetup}
+                className="underline hover:no-underline font-medium"
+              >
+                Run setup
+              </button>{" "}
+              to enable search.
+            </span>
           </div>
         )}
-        <ChatSidebar
-          isOpen={isSidebarOpen}
-          onToggle={handleToggleSidebar}
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelectConversation={selectConversation}
-          onNewChat={handleNewChat}
-          onRenameConversation={renameConversation}
-          onDeleteConversation={deleteConversation}
-        />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="drag-region h-10 flex-shrink-0" />
-          <div className="flex-1 overflow-hidden">
-            <ChatContainer
-              messages={messages}
-              isLoading={isLoading}
-              onSendMessage={handleSendMessage}
-              onStopGeneration={stopGeneration}
-              hasIndexedFiles={(indexStatus?.indexed_files ?? 0) > 0}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-            />
+        {!needsSetup && !llmReady && (
+          <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 no-drag" />
+            <span className="no-drag">
+              LLM not configured. Chat functionality may be limited.
+            </span>
+          </div>
+        )}
+        <div className="flex-1 flex overflow-hidden relative">
+          {!isSidebarOpen && (
+            <div className="absolute top-12 left-3 z-10">
+              <SidebarToggle onClick={handleToggleSidebar} />
+            </div>
+          )}
+          <ChatSidebar
+            isOpen={isSidebarOpen}
+            onToggle={handleToggleSidebar}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onSelectConversation={selectConversation}
+            onNewChat={handleNewChat}
+            onRenameConversation={renameConversation}
+            onDeleteConversation={deleteConversation}
+          />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="drag-region h-10 flex-shrink-0" />
+            <div className="flex-1 overflow-hidden">
+              <ChatContainer
+                messages={messages}
+                isLoading={isLoading}
+                onSendMessage={handleSendMessage}
+                onStopGeneration={stopGeneration}
+                hasIndexedFiles={(indexStatus?.indexed_files ?? 0) > 0}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <SettingsButton onClick={() => setIsSettingsOpen(true)} />
-      <SettingsPanel
-        isOpen={isSettingsOpen}
-        onClose={() => {
-          setIsSettingsOpen(false);
-          refreshIndexStatus();
-        }}
-        onRunSetup={handleRunSetup}
-      />
-    </div>
+        <SettingsButton onClick={() => setIsSettingsOpen(true)} />
+        <SettingsPanel
+          isOpen={isSettingsOpen}
+          onClose={() => {
+            setIsSettingsOpen(false);
+            refreshIndexStatus();
+          }}
+          onRunSetup={handleRunSetup}
+        />
+      </div>
+    </AuthGate>
   );
 }
 
