@@ -64,6 +64,9 @@ hiddenimports = [
     "voyageai",
     "google.generativeai",
     "ollama",
+    # PIL/Pillow (required by python-pptx for image handling)
+    "PIL",
+    "PIL.Image",
     # Others
     "keyring",
     "keyring.backends",
@@ -120,7 +123,6 @@ excludes = [
     "numpy.testing",
     "scipy",
     "matplotlib",
-    "PIL",
     "cv2",
     "sklearn",
     "pandas",
