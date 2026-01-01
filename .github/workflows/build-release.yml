@@ -54,7 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FinderAI-mac
-          path: ui/release/*.dmg
+          path: ui/release/*.zip
 
   build-windows:
     runs-on: windows-latest
