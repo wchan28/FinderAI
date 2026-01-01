@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Plus, PanelLeftClose, Search, X } from "lucide-react";
 import { ConversationList } from "./ConversationList";
+import { UserProfileMenu } from "./UserProfileMenu";
 import type { Conversation, ConversationId } from "../../types/chat";
 
 export function filterConversations(
@@ -27,6 +28,7 @@ type ChatSidebarProps = {
   onNewChat: () => void;
   onRenameConversation: (id: ConversationId, newTitle: string) => void;
   onDeleteConversation: (id: ConversationId) => void;
+  onOpenSettings: () => void;
 };
 
 export function ChatSidebar({
@@ -38,6 +40,7 @@ export function ChatSidebar({
   onNewChat,
   onRenameConversation,
   onDeleteConversation,
+  onOpenSettings,
 }: ChatSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -50,21 +53,21 @@ export function ChatSidebar({
 
   return (
     <div
-      className={`flex flex-col bg-gray-900 transition-all duration-300 ease-in-out ${
+      className={`flex flex-col bg-gray-50 border-r border-gray-200 transition-all duration-300 ease-in-out ${
         isOpen ? "w-64" : "w-0"
       } overflow-hidden`}
     >
       <div className="drag-region flex items-center justify-between pt-12 px-3 pb-3">
         <button
           onClick={onNewChat}
-          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-200 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>New Chat</span>
         </button>
         <button
           onClick={onToggle}
-          className="no-drag p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+          className="no-drag p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           title="Close sidebar"
         >
           <PanelLeftClose className="w-5 h-5" />
@@ -73,18 +76,18 @@ export function ChatSidebar({
 
       <div className="px-3 pb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search chats..."
-            className="w-full bg-gray-800 text-gray-200 text-sm pl-9 pr-8 py-2 rounded-lg outline-none focus:ring-1 focus:ring-gray-600 placeholder-gray-500"
+            className="w-full bg-white border border-gray-200 text-gray-900 text-sm pl-9 pr-8 py-2 rounded-lg outline-none focus:ring-1 focus:ring-gray-300 placeholder-gray-400"
           />
           {hasSearchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
               title="Clear search"
             >
               <X className="w-4 h-4" />
@@ -93,7 +96,7 @@ export function ChatSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-2 sidebar-scrollbar">
+      <div className="flex-1 overflow-y-auto py-2 sidebar-scrollbar-light">
         <ConversationList
           conversations={filteredConversations}
           activeConversationId={activeConversationId}
@@ -102,6 +105,10 @@ export function ChatSidebar({
           onDelete={onDeleteConversation}
           hasSearchQuery={hasSearchQuery}
         />
+      </div>
+
+      <div className="border-t border-gray-200 px-2 py-2">
+        <UserProfileMenu onOpenSettings={onOpenSettings} />
       </div>
     </div>
   );

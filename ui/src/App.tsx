@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ChatContainer } from "./components/Chat/ChatContainer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
-import { SettingsButton } from "./components/Settings/SettingsButton";
 import { SetupWizard } from "./components/Onboarding/SetupWizard";
 import { ChatSidebar } from "./components/Sidebar/ChatSidebar";
 import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
@@ -14,7 +13,7 @@ import { useChatHistory } from "./hooks/useChatHistory";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 const SETUP_COMPLETE_KEY = "finderai_setup_complete";
-const SIDEBAR_OPEN_KEY = "finderai_sidebar_open";
+const SIDEBAR_OPEN_KEY = "finderai_sidebar_state";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<
@@ -25,7 +24,7 @@ function App() {
   const [llmReady, setLlmReady] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_OPEN_KEY);
-    return stored !== "false";
+    return stored === "true";
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [indexStatus, setIndexStatus] = useState<StatusResponse | null>(null);
@@ -216,6 +215,7 @@ function App() {
             onNewChat={handleNewChat}
             onRenameConversation={renameConversation}
             onDeleteConversation={deleteConversation}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="drag-region h-10 flex-shrink-0" />
@@ -232,7 +232,6 @@ function App() {
           </div>
         </div>
 
-        <SettingsButton onClick={() => setIsSettingsOpen(true)} />
         <SettingsPanel
           isOpen={isSettingsOpen}
           onClose={() => {
