@@ -176,33 +176,34 @@ function App() {
 
   return (
     <AuthGate>
-      <div className="h-full flex flex-col bg-white">
-        {needsSetup && (
-          <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 no-drag" />
-            <span className="no-drag">
-              API keys not configured.{" "}
-              <button
-                onClick={handleRunSetup}
-                className="underline hover:no-underline font-medium"
-              >
-                Run setup
-              </button>{" "}
-              to enable search.
-            </span>
-          </div>
-        )}
-        {!needsSetup && !llmReady && (
-          <div className="drag-region bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 no-drag" />
-            <span className="no-drag">
-              LLM not configured. Chat functionality may be limited.
-            </span>
-          </div>
-        )}
-        <div className="flex-1 flex overflow-hidden relative">
+      <div className="h-full flex flex-col bg-white relative">
+        <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50" />
+        <div className="flex-1 flex overflow-hidden relative pt-12">
+          {needsSetup && (
+            <div className="absolute top-0 left-0 right-0 bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2 z-40">
+              <AlertCircle className="w-4 h-4 no-drag" />
+              <span className="no-drag">
+                API keys not configured.{" "}
+                <button
+                  onClick={handleRunSetup}
+                  className="underline hover:no-underline font-medium"
+                >
+                  Run setup
+                </button>{" "}
+                to enable search.
+              </span>
+            </div>
+          )}
+          {!needsSetup && !llmReady && (
+            <div className="absolute top-0 left-0 right-0 bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2 z-40">
+              <AlertCircle className="w-4 h-4 no-drag" />
+              <span className="no-drag">
+                LLM not configured. Chat functionality may be limited.
+              </span>
+            </div>
+          )}
           {!isSidebarOpen && (
-            <div className="absolute top-12 left-3 z-10">
+            <div className="absolute top-0 left-3 z-10">
               <SidebarToggle onClick={handleToggleSidebar} />
             </div>
           )}
@@ -218,7 +219,6 @@ function App() {
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="drag-region h-10 flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
               <ChatContainer
                 messages={messages}
