@@ -7,6 +7,10 @@
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "build:web": "tsc && vite build",
+    "build:backend:mac": "chmod +x ../scripts/build-backend-mac.sh && ../scripts/build-backend-mac.sh",
+    "build:backend:win": "powershell -ExecutionPolicy Bypass -File ../scripts/build-backend-win.ps1",
+    "build:all:mac": "npm run build:backend:mac && npm run build",
+    "build:all:win": "npm run build:backend:win && npm run build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build:web && electron-builder"
@@ -54,7 +58,8 @@
       "target": [
         "dmg"
       ],
-      "icon": "public/icon.icns"
+      "icon": "public/icon.icns",
+      "identity": null
     },
     "win": {
       "target": [
@@ -64,11 +69,10 @@
     },
     "extraResources": [
       {
-        "from": "../backend",
-        "to": "backend",
+        "from": "python-dist/${os}",
+        "to": "python-backend",
         "filter": [
-          "**/*",
-          "!__pycache__/**"
+          "**/*"
         ]
       }
     ]

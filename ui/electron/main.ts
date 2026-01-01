@@ -9,6 +9,7 @@ import {
 } from "electron";
 import path from "path";
 import http from "http";
+import fs from "fs";
 import { spawn, ChildProcess, execSync } from "child_process";
 
 let isQuitting = false;
@@ -111,6 +112,13 @@ function findPythonPath(): string {
   return "python3";
 }
 
+function getBundledServerPath(): string {
+  const executableName =
+    process.platform === "win32" ? "finderai-server.exe" : "finderai-server";
+
+  return path.join(process.resourcesPath, "python-backend", executableName);
+}
+
 function killProcessOnPort(port: number): void {
   try {
     if (process.platform === "win32") {
@@ -182,31 +190,43 @@ function startPythonServer(): Promise<void> {
   return new Promise((resolve, reject) => {
     killProcessOnPort(API_PORT);
 
-    const pythonPath = findPythonPath();
-    const backendPath = app.isPackaged
-      ? path.join(process.resourcesPath, "backend")
-      : path.join(__dirname, "..", "..", "backend");
+    if (app.isPackaged) {
+      const bundledPath = getBundledServerPath();
+      console.log("Starting bundled Python server:", bundledPath);
 
-    installPythonDependencies(backendPath);
+      if (!fs.existsSync(bundledPath)) {
+        reject(new Error(`Bundled Python server not found at: ${bundledPath}`));
+        return;
+      }
 
-    console.log("Starting Python server from:", backendPath);
-
-    pythonProcess = spawn(
-      pythonPath,
-      [
-        "-m",
-        "uvicorn",
-        "backend.api.server:app",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        String(API_PORT),
-      ],
-      {
-        cwd: path.join(backendPath, ".."),
+      pythonProcess = spawn(bundledPath, [], {
         env: { ...process.env, PYTHONUNBUFFERED: "1" },
-      },
-    );
+      });
+    } else {
+      const pythonPath = findPythonPath();
+      const backendPath = path.join(__dirname, "..", "..", "backend");
+
+      installPythonDependencies(backendPath);
+
+      console.log("Starting Python server (dev mode) from:", backendPath);
+
+      pythonProcess = spawn(
+        pythonPath,
+        [
+          "-m",
+          "uvicorn",
+          "backend.api.server:app",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          String(API_PORT),
+        ],
+        {
+          cwd: path.join(backendPath, ".."),
+          env: { ...process.env, PYTHONUNBUFFERED: "1" },
+        },
+      );
+    }
 
     pythonProcess.stdout?.on("data", (data) => {
       console.log(`Python: ${data}`);
@@ -232,7 +252,7 @@ function startPythonServer(): Promise<void> {
       pythonProcess = null;
     });
 
-    setTimeout(() => resolve(), 3000);
+    setTimeout(() => resolve(), 5000);
   });
 }
 
