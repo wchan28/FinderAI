@@ -7,7 +7,6 @@ type ConversationListProps = {
   onSelect: (id: ConversationId) => void;
   onRename: (id: ConversationId, newTitle: string) => void;
   onDelete: (id: ConversationId) => void;
-  hasSearchQuery?: boolean;
 };
 
 export function ConversationList({
@@ -16,12 +15,11 @@ export function ConversationList({
   onSelect,
   onRename,
   onDelete,
-  hasSearchQuery = false,
 }: ConversationListProps) {
   if (conversations.length === 0) {
     return (
       <div className="px-3 py-8 text-center text-gray-500 text-sm">
-        {hasSearchQuery ? "No results found" : "No conversations yet"}
+        No conversations yet
       </div>
     );
   }

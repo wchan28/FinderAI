@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
-import { Plus, PanelLeftClose, Search, X } from "lucide-react";
+import { useState } from "react";
+import { Plus, PanelLeftClose, Search } from "lucide-react";
 import { ConversationList } from "./ConversationList";
 import { UserProfileMenu } from "./UserProfileMenu";
+import { SearchModal } from "../Search/SearchModal";
 import type { Conversation, ConversationId } from "../../types/chat";
 
 export function filterConversations(
@@ -42,14 +43,7 @@ export function ChatSidebar({
   onDeleteConversation,
   onOpenSettings,
 }: ChatSidebarProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredConversations = useMemo(
-    () => filterConversations(conversations, searchQuery),
-    [conversations, searchQuery],
-  );
-
-  const hasSearchQuery = searchQuery.trim().length > 0;
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
     <div
@@ -75,35 +69,32 @@ export function ChatSidebar({
       </div>
 
       <div className="px-3 pb-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search chats..."
-            className="w-full bg-white border border-gray-200 text-gray-900 text-sm pl-9 pr-8 py-2 rounded-lg outline-none focus:ring-1 focus:ring-gray-300 placeholder-gray-400"
-          />
-          {hasSearchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Clear search"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => setIsSearchOpen(true)}
+          className="w-full flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-400 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <Search className="w-4 h-4" />
+          <span>Search chats...</span>
+        </button>
       </div>
+
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        conversations={conversations}
+        onSelectConversation={(id) => {
+          onSelectConversation(id);
+          setIsSearchOpen(false);
+        }}
+      />
 
       <div className="flex-1 overflow-y-auto py-2 sidebar-scrollbar-light">
         <ConversationList
-          conversations={filteredConversations}
+          conversations={conversations}
           activeConversationId={activeConversationId}
           onSelect={onSelectConversation}
           onRename={onRenameConversation}
           onDelete={onDeleteConversation}
-          hasSearchQuery={hasSearchQuery}
         />
       </div>
 
