@@ -13,8 +13,8 @@ on:
         type: boolean
 
 jobs:
-  build-mac:
-    runs-on: macos-15-intel
+  build-mac-arm64:
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,10 +50,53 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Upload Mac artifact
+      - name: Upload Mac ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-mac
+          name: FinderAI-mac-arm64
+          path: ui/release/*.zip
+
+  build-mac-x64:
+    runs-on: macos-13
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          source build_venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          mkdir -p ../ui/python-dist/mac
+          cp -r dist/finderai-server/* ../ui/python-dist/mac/
+          deactivate
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Build Electron app
+        run: cd ui && npm run build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload Mac x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinderAI-mac-x64
           path: ui/release/*.zip
 
   build-windows:
@@ -97,16 +140,22 @@ jobs:
           path: ui/release/*.exe
 
   create-release:
-    needs: [build-mac, build-windows]
+    needs: [build-mac-arm64, build-mac-x64, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
     permissions:
       contents: write
     steps:
-      - name: Download Mac artifact
+      - name: Download Mac ARM64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: FinderAI-mac
+          name: FinderAI-mac-arm64
+          path: ./release
+
+      - name: Download Mac x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: FinderAI-mac-x64
           path: ./release
 
       - name: Download Windows artifact
