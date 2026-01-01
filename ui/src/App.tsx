@@ -137,7 +137,8 @@ function App() {
 
   if (backendStatus === "loading") {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-gray-50 relative">
+        <div className="drag-region absolute top-0 left-0 right-0 h-12" />
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto" />
           <p className="mt-4 text-gray-600">Starting FinderAI...</p>
@@ -149,7 +150,8 @@ function App() {
 
   if (backendStatus === "error") {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-gray-50 relative">
+        <div className="drag-region absolute top-0 left-0 right-0 h-12" />
         <div className="text-center max-w-md px-4">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
           <p className="mt-4 text-gray-900 font-medium">
@@ -169,7 +171,10 @@ function App() {
   if (showSetupWizard) {
     return (
       <AuthGate>
-        <SetupWizard onComplete={handleSetupComplete} />
+        <div className="h-full relative">
+          <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50" />
+          <SetupWizard onComplete={handleSetupComplete} />
+        </div>
       </AuthGate>
     );
   }

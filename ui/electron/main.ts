@@ -66,7 +66,9 @@ function startOAuthServer(): void {
   });
 
   oauthServer.listen(OAUTH_PORT, "127.0.0.1", () => {
-    console.log(`OAuth callback server listening on http://127.0.0.1:${OAUTH_PORT}`);
+    console.log(
+      `OAuth callback server listening on http://127.0.0.1:${OAUTH_PORT}`,
+    );
   });
 
   oauthServer.on("error", (err) => {
@@ -193,12 +195,50 @@ function startPythonServer(): Promise<void> {
     if (app.isPackaged) {
       const bundledPath = getBundledServerPath();
       console.log("Starting bundled Python server:", bundledPath);
+      console.log("Resources path:", process.resourcesPath);
 
       if (!fs.existsSync(bundledPath)) {
+        console.error("Bundled server not found at:", bundledPath);
+        const pythonBackendDir = path.join(
+          process.resourcesPath,
+          "python-backend",
+        );
+        if (fs.existsSync(pythonBackendDir)) {
+          console.log(
+            "python-backend directory contents:",
+            fs.readdirSync(pythonBackendDir),
+          );
+        } else {
+          console.error("python-backend directory does not exist");
+        }
         reject(new Error(`Bundled Python server not found at: ${bundledPath}`));
         return;
       }
 
+      try {
+        const stats = fs.statSync(bundledPath);
+        console.log(
+          "Server file stats - size:",
+          stats.size,
+          "mode:",
+          stats.mode.toString(8),
+        );
+
+        if (process.platform !== "win32") {
+          const isExecutable = (stats.mode & 0o111) !== 0;
+          if (!isExecutable) {
+            console.log(
+              "File is not executable, attempting to fix permissions...",
+            );
+            fs.chmodSync(bundledPath, 0o755);
+            console.log("Permissions updated to 755");
+          }
+        }
+      } catch (err) {
+        console.error("Error checking file stats:", err);
+      }
+
+      console.log("Spawning bundled server...");
       pythonProcess = spawn(bundledPath, [], {
         env: { ...process.env, PYTHONUNBUFFERED: "1" },
       });
@@ -243,16 +283,24 @@ function startPythonServer(): Promise<void> {
     });
 
     pythonProcess.on("error", (err) => {
-      console.error("Failed to start Python:", err);
+      console.error("Failed to start Python process:", err);
+      console.error("Error code:", (err as NodeJS.ErrnoException).code);
+      console.error("Error message:", err.message);
       reject(err);
     });
 
-    pythonProcess.on("close", (code) => {
-      console.log(`Python process exited with code ${code}`);
+    pythonProcess.on("close", (code, signal) => {
+      console.log(`Python process exited with code ${code}, signal ${signal}`);
+      if (code !== 0 && code !== null) {
+        console.error("Python process exited with non-zero code:", code);
+      }
       pythonProcess = null;
     });
 
-    setTimeout(() => resolve(), 5000);
+    setTimeout(() => {
+      console.log("Startup timeout reached, proceeding anyway...");
+      resolve();
+    }, 5000);
   });
 }
 
