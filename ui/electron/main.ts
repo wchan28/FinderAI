@@ -9,15 +9,18 @@ import {
 } from "electron";
 import path from "path";
 import http from "http";
-import fs from "fs";
+import fs, { createReadStream, statSync } from "fs";
 import { spawn, ChildProcess, execSync } from "child_process";
+import { lookup as mimeLookup } from "mime-types";
 
 let isQuitting = false;
 let sleepBlockerId: number | null = null;
 let oauthServer: http.Server | null = null;
+let staticServer: http.Server | null = null;
 
 const PROTOCOL_NAME = "finderai";
 const OAUTH_PORT = 3001;
+const STATIC_PORT = 5174;
 
 function handleAuthCallback(url: string): void {
   console.log("Auth callback received:", url);
@@ -81,6 +84,57 @@ function stopOAuthServer(): void {
     oauthServer.close();
     oauthServer = null;
     console.log("OAuth server stopped");
+  }
+}
+
+function startStaticServer(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const distPath = path.join(__dirname, "..", "dist");
+
+    staticServer = http.createServer((req, res) => {
+      const urlPath = req.url?.split("?")[0] || "/";
+      let filePath = path.join(
+        distPath,
+        urlPath === "/" ? "index.html" : urlPath,
+      );
+
+      if (!fs.existsSync(filePath) || statSync(filePath).isDirectory()) {
+        filePath = path.join(distPath, "index.html");
+      }
+
+      try {
+        const stat = statSync(filePath);
+        const mimeType = mimeLookup(filePath) || "application/octet-stream";
+
+        res.writeHead(200, {
+          "Content-Type": mimeType,
+          "Content-Length": stat.size,
+        });
+
+        createReadStream(filePath).pipe(res);
+      } catch {
+        res.writeHead(404);
+        res.end("Not found");
+      }
+    });
+
+    staticServer.listen(STATIC_PORT, "127.0.0.1", () => {
+      console.log(`Static server listening on http://127.0.0.1:${STATIC_PORT}`);
+      resolve();
+    });
+
+    staticServer.on("error", (err) => {
+      console.error("Static server error:", err);
+      reject(err);
+    });
+  });
+}
+
+function stopStaticServer(): void {
+  if (staticServer) {
+    staticServer.close();
+    staticServer = null;
+    console.log("Static server stopped");
   }
 }
 
@@ -362,6 +416,7 @@ async function gracefulShutdown(): Promise<void> {
   await pauseIndexingIfRunning();
   allowSleep();
   stopOAuthServer();
+  stopStaticServer();
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -387,7 +442,7 @@ function createWindow(): void {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    mainWindow.loadURL(`http://127.0.0.1:${STATIC_PORT}`);
   }
 
   mainWindow.on("closed", () => {
@@ -476,6 +531,15 @@ if (!gotTheLock) {
 
 app.whenReady().then(async () => {
   startOAuthServer();
+
+  if (app.isPackaged) {
+    try {
+      await startStaticServer();
+      console.log("Static server started");
+    } catch (err) {
+      console.error("Failed to start static server:", err);
+    }
+  }
 
   try {
     await startPythonServer();
