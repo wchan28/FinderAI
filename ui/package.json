@@ -5,7 +5,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc -p electron/tsconfig.json && vite build && electron-builder",
     "build:web": "tsc && vite build",
     "build:backend:mac": "chmod +x ../scripts/build-backend-mac.sh && ../scripts/build-backend-mac.sh",
     "build:backend:win": "powershell -ExecutionPolicy Bypass -File ../scripts/build-backend-win.ps1",
