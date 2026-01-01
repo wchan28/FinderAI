@@ -19,6 +19,7 @@ interface ElectronAPI {
   onIncompleteIndexing: (
     callback: (jobInfo: IncompleteJobInfo) => void,
   ) => () => void;
+  onAuthCallback: (callback: (url: string) => void) => () => void;
 }
 
 interface Window {

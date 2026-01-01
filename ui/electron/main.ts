@@ -8,11 +8,78 @@ import {
   powerMonitor,
 } from "electron";
 import path from "path";
+import http from "http";
 import { spawn, ChildProcess, execSync } from "child_process";
 
 let isQuitting = false;
-
 let sleepBlockerId: number | null = null;
+let oauthServer: http.Server | null = null;
+
+const PROTOCOL_NAME = "finderai";
+const OAUTH_PORT = 3001;
+
+function handleAuthCallback(url: string): void {
+  console.log("Auth callback received:", url);
+  if (mainWindow) {
+    mainWindow.webContents.send("auth-callback", url);
+    mainWindow.focus();
+  }
+}
+
+function startOAuthServer(): void {
+  oauthServer = http.createServer((req, res) => {
+    const reqUrl = new URL(req.url || "/", `http://localhost:${OAUTH_PORT}`);
+
+    if (reqUrl.pathname === "/auth/callback") {
+      const fullUrl = `http://localhost:${OAUTH_PORT}${req.url}`;
+      console.log("OAuth callback received:", fullUrl);
+
+      handleAuthCallback(fullUrl);
+
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Authentication Successful</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+              .container { text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              h2 { color: #333; margin-bottom: 10px; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Authentication Successful!</h2>
+              <p>You can close this window and return to FinderAI.</p>
+            </div>
+            <script>setTimeout(() => window.close(), 1500)</script>
+          </body>
+        </html>
+      `);
+    } else {
+      res.writeHead(404);
+      res.end("Not found");
+    }
+  });
+
+  oauthServer.listen(OAUTH_PORT, "127.0.0.1", () => {
+    console.log(`OAuth callback server listening on http://127.0.0.1:${OAUTH_PORT}`);
+  });
+
+  oauthServer.on("error", (err) => {
+    console.error("OAuth server error:", err);
+  });
+}
+
+function stopOAuthServer(): void {
+  if (oauthServer) {
+    oauthServer.close();
+    oauthServer = null;
+    console.log("OAuth server stopped");
+  }
+}
 
 function preventSleep(): boolean {
   if (sleepBlockerId === null) {
@@ -226,6 +293,7 @@ async function gracefulShutdown(): Promise<void> {
 
   await pauseIndexingIfRunning();
   allowSleep();
+  stopOAuthServer();
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -302,7 +370,45 @@ ipcMain.handle("is-sleep-prevented", () => {
   };
 });
 
+// Register custom protocol for OAuth callbacks
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL_NAME, process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL_NAME);
+}
+
+// Handle protocol on macOS
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  if (url.startsWith(`${PROTOCOL_NAME}://`)) {
+    handleAuthCallback(url);
+  }
+});
+
+// Handle protocol on Windows/Linux (second instance)
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, argv) => {
+    const url = argv.find((arg) => arg.startsWith(`${PROTOCOL_NAME}://`));
+    if (url) {
+      handleAuthCallback(url);
+    }
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
+  startOAuthServer();
+
   try {
     await startPythonServer();
     console.log("Python server started");
@@ -311,6 +417,14 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+
+  // Check for protocol URL passed as argument (Windows/Linux cold start)
+  const protocolUrl = process.argv.find((arg) =>
+    arg.startsWith(`${PROTOCOL_NAME}://`),
+  );
+  if (protocolUrl) {
+    setTimeout(() => handleAuthCallback(protocolUrl), 1000);
+  }
 
   setTimeout(() => {
     checkForIncompleteIndexing();

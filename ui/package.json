@@ -37,6 +37,12 @@
   "build": {
     "appId": "com.finderai.app",
     "productName": "FinderAI",
+    "protocols": {
+      "name": "FinderAI",
+      "schemes": [
+        "finderai"
+      ]
+    },
     "directories": {
       "output": "release"
     },

@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("incomplete-indexing", (_, jobInfo) => callback(jobInfo));
     return () => ipcRenderer.removeAllListeners("incomplete-indexing");
   },
+  onAuthCallback: (callback: (url: string) => void) => {
+    ipcRenderer.on("auth-callback", (_, url) => callback(url));
+    return () => ipcRenderer.removeAllListeners("auth-callback");
+  },
 });
