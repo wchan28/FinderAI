@@ -184,12 +184,12 @@ function App() {
       <div className="h-full flex flex-col bg-white relative">
         <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50 flex">
           <div className={`h-full flex items-center transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64 bg-gray-50 border-r border-gray-200" : "w-0 bg-transparent"}`}>
-            <div className={`ml-[70px] transition-opacity duration-300 ${isSidebarOpen ? "opacity-100" : "opacity-0"}`}>
+            <div className={`ml-[78px] transition-opacity duration-300 ${isSidebarOpen ? "opacity-100" : "opacity-0"}`}>
               <SidebarToggle onClick={handleToggleSidebar} isOpen={isSidebarOpen} />
             </div>
           </div>
           <div className={`flex items-center transition-opacity duration-300 ${isSidebarOpen ? "opacity-0" : "opacity-100"}`}>
-            <div className="ml-[70px]">
+            <div className="ml-[78px]">
               <SidebarToggle onClick={handleToggleSidebar} isOpen={isSidebarOpen} />
             </div>
           </div>

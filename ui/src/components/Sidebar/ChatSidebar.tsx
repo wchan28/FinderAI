@@ -52,7 +52,7 @@ export function ChatSidebar({
       <div className="drag-region px-3 py-3">
         <button
           onClick={onNewChat}
-          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg transition-colors w-full justify-center"
+          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors w-full"
         >
           <Plus className="w-4 h-4" />
           <span>New Chat</span>

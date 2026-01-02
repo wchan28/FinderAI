@@ -29,8 +29,13 @@ export function ChatContainer({
       <InputArea
         onSend={onSendMessage}
         onStop={onStopGeneration}
-        disabled={isLoading}
+        disabled={isLoading || !hasIndexedFiles}
         isLoading={isLoading}
+        placeholder={
+          hasIndexedFiles
+            ? "Ask a question about your files..."
+            : "Index your files first to start asking questions..."
+        }
       />
     </div>
   );

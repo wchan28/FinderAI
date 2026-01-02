@@ -6,6 +6,7 @@ interface InputAreaProps {
   onStop?: () => void;
   disabled?: boolean;
   isLoading?: boolean;
+  placeholder?: string;
 }
 
 export function InputArea({
@@ -13,6 +14,7 @@ export function InputArea({
   onStop,
   disabled,
   isLoading,
+  placeholder = "Ask a question about your files...",
 }: InputAreaProps) {
   const [input, setInput] = useState("");
 
@@ -39,7 +41,7 @@ export function InputArea({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question about your files..."
+            placeholder={placeholder}
             className="flex-1 bg-transparent resize-none outline-none text-gray-900 placeholder-gray-400 max-h-32"
             rows={1}
             disabled={disabled}

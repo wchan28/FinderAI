@@ -93,14 +93,14 @@ export function ConversationItem({
   return (
     <button
       onClick={onSelect}
-      className={`group w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+      className={`group relative w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
         isActive
           ? "bg-gray-200 text-gray-900"
           : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
       }`}
     >
       <span className="flex-1 text-sm truncate">{conversation.title}</span>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute right-2 flex items-center gap-1 bg-inherit opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={handleStartEdit}
           className="p-1 text-gray-500 hover:text-gray-700 transition-colors"

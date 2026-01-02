@@ -15,9 +15,19 @@ export function MessageList({
   onOpenSettings,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef<number>(0);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const prevCount = prevMessageCountRef.current;
+    const currentCount = messages.length;
+    prevMessageCountRef.current = currentCount;
+
+    const isConversationSwitch =
+      currentCount === 0 || Math.abs(currentCount - prevCount) > 1;
+
+    bottomRef.current?.scrollIntoView({
+      behavior: isConversationSwitch ? "instant" : "smooth",
+    });
   }, [messages]);
 
   if (messages.length === 0) {
