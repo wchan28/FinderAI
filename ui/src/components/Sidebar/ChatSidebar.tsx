@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, PanelLeftClose, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { ConversationList } from "./ConversationList";
 import { UserProfileMenu } from "./UserProfileMenu";
 import { SearchModal } from "../Search/SearchModal";
@@ -22,7 +22,6 @@ export function filterConversations(
 
 type ChatSidebarProps = {
   isOpen: boolean;
-  onToggle: () => void;
   conversations: Conversation[];
   activeConversationId: ConversationId | null;
   onSelectConversation: (id: ConversationId) => void;
@@ -34,7 +33,6 @@ type ChatSidebarProps = {
 
 export function ChatSidebar({
   isOpen,
-  onToggle,
   conversations,
   activeConversationId,
   onSelectConversation,
@@ -51,20 +49,13 @@ export function ChatSidebar({
         isOpen ? "w-64" : "w-0"
       } overflow-hidden`}
     >
-      <div className="drag-region flex items-center justify-between pt-12 px-3 pb-3">
+      <div className="drag-region px-3 py-3">
         <button
           onClick={onNewChat}
-          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg transition-colors"
+          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg transition-colors w-full justify-center"
         >
           <Plus className="w-4 h-4" />
           <span>New Chat</span>
-        </button>
-        <button
-          onClick={onToggle}
-          className="no-drag p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Close sidebar"
-        >
-          <PanelLeftClose className="w-5 h-5" />
         </button>
       </div>
 

@@ -182,7 +182,19 @@ function App() {
   return (
     <AuthGate>
       <div className="h-full flex flex-col bg-white relative">
-        <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50" />
+        <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50 flex">
+          <div className={`h-full flex items-center transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64 bg-gray-50 border-r border-gray-200" : "w-0 bg-transparent"}`}>
+            <div className={`ml-[70px] transition-opacity duration-300 ${isSidebarOpen ? "opacity-100" : "opacity-0"}`}>
+              <SidebarToggle onClick={handleToggleSidebar} isOpen={isSidebarOpen} />
+            </div>
+          </div>
+          <div className={`flex items-center transition-opacity duration-300 ${isSidebarOpen ? "opacity-0" : "opacity-100"}`}>
+            <div className="ml-[70px]">
+              <SidebarToggle onClick={handleToggleSidebar} isOpen={isSidebarOpen} />
+            </div>
+          </div>
+          <div className="flex-1" />
+        </div>
         <div className="flex-1 flex overflow-hidden relative pt-12">
           {needsSetup && (
             <div className="absolute top-0 left-0 right-0 bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2 z-40">
@@ -207,14 +219,8 @@ function App() {
               </span>
             </div>
           )}
-          {!isSidebarOpen && (
-            <div className="absolute top-14 left-3 z-10">
-              <SidebarToggle onClick={handleToggleSidebar} />
-            </div>
-          )}
           <ChatSidebar
             isOpen={isSidebarOpen}
-            onToggle={handleToggleSidebar}
             conversations={conversations}
             activeConversationId={activeConversationId}
             onSelectConversation={selectConversation}
