@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { SquarePen, Search } from "lucide-react";
 import { ConversationList } from "./ConversationList";
 import { UserProfileMenu } from "./UserProfileMenu";
 import { SearchModal } from "../Search/SearchModal";
@@ -49,23 +49,20 @@ export function ChatSidebar({
         isOpen ? "w-64" : "w-0"
       } overflow-hidden`}
     >
-      <div className="drag-region px-3 py-3">
+      <div className="drag-region px-3 pt-3 pb-1 flex flex-col gap-0.5">
         <button
           onClick={onNewChat}
-          className="no-drag flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors w-full"
+          className="no-drag flex items-center gap-3 px-2 py-2 text-sm text-gray-700 hover:bg-gray-200/60 rounded-lg transition-colors w-full"
         >
-          <Plus className="w-4 h-4" />
-          <span>New Chat</span>
+          <SquarePen className="w-4 h-4" strokeWidth={2} />
+          <span>New chat</span>
         </button>
-      </div>
-
-      <div className="px-3 pb-3">
         <button
           onClick={() => setIsSearchOpen(true)}
-          className="w-full flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-400 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+          className="no-drag flex items-center gap-3 px-2 py-2 text-sm text-gray-700 hover:bg-gray-200/60 rounded-lg transition-colors w-full"
         >
-          <Search className="w-4 h-4" />
-          <span>Search chats...</span>
+          <Search className="w-4 h-4" strokeWidth={2} />
+          <span>Search chats</span>
         </button>
       </div>
 
@@ -79,7 +76,8 @@ export function ChatSidebar({
         }}
       />
 
-      <div className="flex-1 overflow-y-auto py-2 sidebar-scrollbar-light">
+      <div className="flex-1 overflow-y-auto pt-4 pb-2 sidebar-scrollbar-light">
+        <h3 className="px-4 pb-2 text-xs font-medium text-gray-500">Your chats</h3>
         <ConversationList
           conversations={conversations}
           activeConversationId={activeConversationId}
