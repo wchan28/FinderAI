@@ -49,6 +49,9 @@ jobs:
         run: cd ui && npm run build
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Upload Mac ARM64 artifact
         uses: actions/upload-artifact@v4
@@ -92,6 +95,9 @@ jobs:
         run: cd ui && npm run build
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Upload Mac x64 artifact
         uses: actions/upload-artifact@v4
@@ -132,6 +138,10 @@ jobs:
 
       - name: Build Electron app
         run: cd ui && npm run build
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
