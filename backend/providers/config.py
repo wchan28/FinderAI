@@ -86,7 +86,10 @@ class ProviderConfig:
 class ConfigStore:
     """SQLite-based configuration storage."""
 
-    def __init__(self, db_path: str = "./data/metadata.db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            from backend.db.metadata_store import DEFAULT_DB_PATH
+            db_path = DEFAULT_DB_PATH
         db_file = Path(db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)

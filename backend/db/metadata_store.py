@@ -2,15 +2,35 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Optional, Dict, List
+
+
+def get_data_dir() -> Path:
+    """Get the appropriate data directory for the app."""
+    if sys.platform == "darwin":
+        data_dir = Path.home() / "Library" / "Application Support" / "FinderAI"
+    elif sys.platform == "win32":
+        data_dir = Path(os.environ.get("APPDATA", str(Path.home()))) / "FinderAI"
+    else:
+        data_dir = Path.home() / ".finderai"
+
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+DEFAULT_DB_PATH = str(get_data_dir() / "metadata.db")
 
 
 class MetadataStore:
     """SQLite store for tracking indexed files and their hashes."""
 
-    def __init__(self, db_path: str = "./data/metadata.db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            db_path = DEFAULT_DB_PATH
         db_file = Path(db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
 

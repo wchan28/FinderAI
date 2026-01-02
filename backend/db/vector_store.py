@@ -10,7 +10,10 @@ from chromadb.config import Settings
 class VectorStore:
     """ChromaDB wrapper for storing and searching document embeddings."""
 
-    def __init__(self, persist_dir: str = "./data/chroma_db", expected_dimension: Optional[int] = None, auto_reset: bool = True):
+    def __init__(self, persist_dir: str = None, expected_dimension: Optional[int] = None, auto_reset: bool = True):
+        if persist_dir is None:
+            from backend.db.metadata_store import get_data_dir
+            persist_dir = str(get_data_dir() / "chroma_db")
         persist_path = Path(persist_dir)
         persist_path.mkdir(parents=True, exist_ok=True)
 
