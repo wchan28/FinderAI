@@ -91,9 +91,17 @@ export function ConversationItem({
   }
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className={`group relative w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`group relative w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
         isActive
           ? "bg-gray-200 text-gray-900"
           : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
@@ -116,6 +124,6 @@ export function ConversationItem({
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
-    </button>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pickle
 import re
+import threading
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -12,6 +13,8 @@ from rank_bm25 import BM25Okapi
 
 class BM25Index:
     """BM25 index for keyword-based document retrieval."""
+
+    _save_lock = threading.Lock()
 
     def __init__(self, persist_path: str = "./data/bm25_index.pkl"):
         self._persist_path = Path(persist_path)
@@ -118,13 +121,14 @@ class BM25Index:
 
     def _save(self) -> None:
         """Save the index to disk."""
-        data = {
-            "documents": self._documents,
-            "doc_ids": self._doc_ids,
-            "doc_texts": self._doc_texts,
-        }
-        with open(self._persist_path, "wb") as f:
-            pickle.dump(data, f)
+        with self._save_lock:
+            data = {
+                "documents": self._documents,
+                "doc_ids": self._doc_ids,
+                "doc_texts": self._doc_texts,
+            }
+            with open(self._persist_path, "wb") as f:
+                pickle.dump(data, f)
 
     def _load(self) -> None:
         """Load the index from disk."""

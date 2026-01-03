@@ -64,9 +64,6 @@ export function InputArea({
             </button>
           )}
         </div>
-        <p className="text-xs text-gray-400 mt-2 text-center">
-          Press Enter to send, Shift+Enter for new line
-        </p>
       </div>
     </div>
   );

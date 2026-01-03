@@ -34,8 +34,14 @@ class MetadataStore:
         db_file = Path(db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
 
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.conn = sqlite3.connect(
+            db_path,
+            check_same_thread=False,
+            timeout=30.0,
+            isolation_level=None  # Autocommit mode - prevents nested transaction issues
+        )
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA journal_mode=WAL")
         self._init_tables()
 
     def _init_tables(self) -> None:

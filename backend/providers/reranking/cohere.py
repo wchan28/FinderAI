@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from backend.providers.reranking.base import BaseRerankingProvider, RerankResult
+from backend.providers.config import is_proxy_mode_enabled
+from backend.providers.proxy_client import proxy_rerank
 
 
 COHERE_RERANK_MODELS = [
@@ -44,9 +46,28 @@ class CohereRerankingProvider(BaseRerankingProvider):
         if not documents:
             return []
 
-        client = self._get_client()
-
         texts = [doc.get("text", "") for doc in documents]
+
+        if is_proxy_mode_enabled():
+            proxy_results = proxy_rerank(
+                query=query,
+                documents=texts,
+                model=self._model,
+                top_n=min(top_n, len(documents)),
+            )
+            results = []
+            for item in proxy_results:
+                idx = item.get("index", 0)
+                original_doc = documents[idx]
+                results.append(RerankResult(
+                    text=original_doc.get("text", ""),
+                    score=item.get("relevance_score", 0.0),
+                    metadata={k: v for k, v in original_doc.items() if k != "text"},
+                    original_index=idx,
+                ))
+            return results
+
+        client = self._get_client()
 
         response = client.rerank(
             query=query,

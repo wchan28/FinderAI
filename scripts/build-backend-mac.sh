@@ -22,10 +22,26 @@ echo "Cleaning previous builds..."
 rm -rf build dist build_venv __pycache__
 rm -rf "$OUTPUT_DIR"
 
+# Find the best Python version (prefer 3.12+)
+PYTHON_CMD=""
+for py in python3.13 python3.12 /usr/local/bin/python3.12 /usr/local/bin/python3.13; do
+  if command -v "$py" &> /dev/null; then
+    PYTHON_CMD="$py"
+    break
+  fi
+done
+
+if [ -z "$PYTHON_CMD" ]; then
+  echo "ERROR: Python 3.12+ not found. Please install with: brew install python@3.12"
+  exit 1
+fi
+
+echo "Using Python: $PYTHON_CMD ($($PYTHON_CMD --version))"
+
 # Create virtual environment for isolated build
 echo ""
 echo "Creating virtual environment..."
-python3 -m venv build_venv
+"$PYTHON_CMD" -m venv build_venv
 source build_venv/bin/activate
 
 # Upgrade pip

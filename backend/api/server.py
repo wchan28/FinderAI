@@ -8,13 +8,25 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.api.routes.chat import router as chat_router
 from backend.api.routes.index import router as index_router
 from backend.api.routes.status import router as status_router
 from backend.api.routes.settings import router as settings_router
+from backend.providers.config import set_clerk_token
+
+
+class ClerkTokenMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        clerk_token = request.headers.get("x-clerk-auth-token")
+        if clerk_token:
+            set_clerk_token(clerk_token)
+        response = await call_next(request)
+        return response
+
 
 app = FastAPI(
     title="FinderAI API",
@@ -29,6 +41,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ClerkTokenMiddleware)
 
 app.include_router(chat_router, prefix="/api")
 app.include_router(index_router, prefix="/api")

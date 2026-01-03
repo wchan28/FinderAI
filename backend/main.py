@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend.indexer.index_manager import index_folder
 from backend.search.retriever import search_documents, get_unique_files_for_query
 from backend.chat.rag_handler import chat, get_answer
-from backend.db.vector_store import VectorStore
+from backend.db.vector_store import get_vector_store
 from backend.db.metadata_store import MetadataStore
 
 
@@ -90,7 +90,7 @@ def cmd_search(args: argparse.Namespace) -> None:
 
 def cmd_chat(args: argparse.Namespace) -> None:
     """Interactive chat mode."""
-    vector_store = VectorStore()
+    vector_store = get_vector_store()
 
     if vector_store.count() == 0:
         print("No documents indexed yet!")
@@ -104,7 +104,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
     """Ask a single question."""
     query = args.query
 
-    vector_store = VectorStore()
+    vector_store = get_vector_store()
 
     if vector_store.count() == 0:
         print("No documents indexed yet!")
@@ -122,7 +122,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Show indexing status."""
-    vector_store = VectorStore()
+    vector_store = get_vector_store()
     metadata_store = MetadataStore()
 
     print("FinderAI Status")

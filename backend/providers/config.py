@@ -9,27 +9,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-BUNDLED_KEY_PROVIDERS = {"openai", "cohere"}
+# Supabase Edge Function proxy URL for secure API key handling
+# This routes LLM/embedding/rerank calls through Supabase where keys are stored securely
+SUPABASE_PROXY_URL = os.environ.get(
+    "SUPABASE_PROXY_URL",
+    "https://lxcwfylurqxlggmktkgb.supabase.co/functions/v1"
+)
 
-_bundled_keys_cache: dict[str, str] | None = None
+# Enable proxy mode by default (keys stored on Supabase, not bundled in app)
+USE_PROXY_MODE = os.environ.get("USE_PROXY_MODE", "true").lower() == "true"
 
 
-def _load_bundled_keys() -> dict[str, str]:
-    """Load bundled API keys from JSON file (for owner-provided services)."""
-    global _bundled_keys_cache
-    if _bundled_keys_cache is not None:
-        return _bundled_keys_cache
+def is_proxy_mode_enabled() -> bool:
+    """Check if proxy mode is enabled for secure API key handling."""
+    return USE_PROXY_MODE
 
-    bundled_path = Path(__file__).parent / ".bundled_keys.json"
-    if bundled_path.exists():
-        try:
-            _bundled_keys_cache = json.loads(bundled_path.read_text())
-            return _bundled_keys_cache
-        except (json.JSONDecodeError, OSError):
-            pass
 
-    _bundled_keys_cache = {}
-    return _bundled_keys_cache
+def get_proxy_url() -> str:
+    """Get the Supabase Edge Function proxy URL."""
+    return SUPABASE_PROXY_URL
 
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODEL = "gpt-5.1"
@@ -92,8 +90,14 @@ class ConfigStore:
             db_path = DEFAULT_DB_PATH
         db_file = Path(db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.conn = sqlite3.connect(
+            db_path,
+            check_same_thread=False,
+            timeout=30.0,
+            isolation_level=None  # Autocommit mode - prevents nested transaction issues
+        )
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA journal_mode=WAL")
         self._init_tables()
 
     def _init_tables(self) -> None:
@@ -193,7 +197,14 @@ def save_config(config: ProviderConfig) -> None:
 
 
 def _get_api_key(provider: str) -> Optional[str]:
-    """Get API key from environment, secure storage, or bundled keys."""
+    """Get API key from environment or secure storage.
+
+    In proxy mode, returns a placeholder since actual keys are on Supabase.
+    """
+    # In proxy mode, we don't need local API keys - they're on Supabase
+    if is_proxy_mode_enabled() and provider in {"openai", "cohere", "voyage"}:
+        return "PROXY_MODE"
+
     env_var = f"{provider.upper()}_API_KEY"
     key = os.environ.get(env_var)
     if key:
@@ -212,11 +223,22 @@ def _get_api_key(provider: str) -> Optional[str]:
     if key:
         return key
 
-    if provider in BUNDLED_KEY_PROVIDERS:
-        bundled_keys = _load_bundled_keys()
-        return bundled_keys.get(f"{provider.upper()}_API_KEY")
-
     return None
+
+
+# Clerk token storage for proxy authentication
+_clerk_token: Optional[str] = None
+
+
+def set_clerk_token(token: str) -> None:
+    """Set the Clerk auth token for proxy requests."""
+    global _clerk_token
+    _clerk_token = token
+
+
+def get_clerk_token() -> Optional[str]:
+    """Get the Clerk auth token for proxy requests."""
+    return _clerk_token
 
 
 def save_api_key(provider: str, api_key: str) -> None:

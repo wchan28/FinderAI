@@ -11,7 +11,7 @@ from queue import Queue
 from threading import Thread, Event
 
 from backend.indexer.index_manager import index_folder, reindex_files
-from backend.db.vector_store import VectorStore
+from backend.db.vector_store import get_vector_store, reset_vector_store
 from backend.db.metadata_store import MetadataStore
 from backend.providers.config import _get_config_store
 from backend.search.bm25_index import get_bm25_index
@@ -24,7 +24,7 @@ _cancel_event: Event | None = None
 @router.post("/clear-index")
 async def clear_index():
     """Clear all indexed data."""
-    vector_store = VectorStore()
+    vector_store = get_vector_store()
     metadata_store = MetadataStore()
     bm25_index = get_bm25_index()
 
@@ -35,6 +35,8 @@ async def clear_index():
 
     store = _get_config_store()
     store.delete("indexed_folder")
+
+    reset_vector_store()
 
     return {"status": "cleared"}
 

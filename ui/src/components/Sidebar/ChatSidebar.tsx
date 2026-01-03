@@ -74,10 +74,13 @@ export function ChatSidebar({
           onSelectConversation(id);
           setIsSearchOpen(false);
         }}
+        onNewChat={onNewChat}
       />
 
       <div className="flex-1 overflow-y-auto pt-4 pb-2 sidebar-scrollbar-light">
-        <h3 className="px-4 pb-2 text-xs font-medium text-gray-500">Your chats</h3>
+        <h3 className="px-4 pb-2 text-xs font-medium text-gray-500">
+          Your chats
+        </h3>
         <ConversationList
           conversations={conversations}
           activeConversationId={activeConversationId}

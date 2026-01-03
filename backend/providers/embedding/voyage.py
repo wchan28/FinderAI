@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import List
 
 from backend.providers.embedding.base import BaseEmbeddingProvider
+from backend.providers.config import is_proxy_mode_enabled
+from backend.providers.proxy_client import proxy_embeddings
 
 
 VOYAGE_EMBEDDING_MODELS = [
@@ -59,6 +61,14 @@ class VoyageEmbeddingProvider(BaseEmbeddingProvider):
         if not texts:
             return []
 
+        if is_proxy_mode_enabled():
+            return proxy_embeddings(
+                texts=texts,
+                model=self._model,
+                provider="voyage",
+                input_type="document",
+            )
+
         client = self._get_client()
 
         batch_size = 128
@@ -76,6 +86,15 @@ class VoyageEmbeddingProvider(BaseEmbeddingProvider):
         return all_embeddings
 
     def embed_query(self, text: str) -> List[float]:
+        if is_proxy_mode_enabled():
+            result = proxy_embeddings(
+                texts=[text],
+                model=self._model,
+                provider="voyage",
+                input_type="query",
+            )
+            return result[0] if result else []
+
         client = self._get_client()
         response = client.embed(
             [text],

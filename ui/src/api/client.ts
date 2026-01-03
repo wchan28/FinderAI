@@ -88,10 +88,16 @@ export async function streamChat(
   message: string,
   callbacks: ChatStreamCallbacks,
   abortSignal?: AbortSignal,
+  clerkToken?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clerkToken) {
+    headers["x-clerk-auth-token"] = clerkToken;
+  }
+
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ message }),
     signal: abortSignal,
   });
@@ -152,10 +158,16 @@ export async function streamIndex(
   maxChunks: number,
   force: boolean,
   callbacks: IndexStreamCallbacks,
+  clerkToken?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clerkToken) {
+    headers["x-clerk-auth-token"] = clerkToken;
+  }
+
   const res = await fetch(`${API_BASE}/api/index`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ folder, max_chunks: maxChunks, force }),
   });
 
@@ -170,10 +182,16 @@ export async function streamIndex(
 export async function streamReindex(
   maxChunks: number,
   callbacks: IndexStreamCallbacks,
+  clerkToken?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clerkToken) {
+    headers["x-clerk-auth-token"] = clerkToken;
+  }
+
   const res = await fetch(`${API_BASE}/api/reindex`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ max_chunks: maxChunks }),
   });
 
@@ -188,10 +206,16 @@ export async function streamReindex(
 export async function streamIndexSkipped(
   maxChunks: number,
   callbacks: IndexStreamCallbacks,
+  clerkToken?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clerkToken) {
+    headers["x-clerk-auth-token"] = clerkToken;
+  }
+
   const res = await fetch(`${API_BASE}/api/index/skipped`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ max_chunks: maxChunks }),
   });
 
@@ -384,10 +408,16 @@ export interface ResumeStreamCallbacks {
 export async function streamResume(
   jobId: number,
   callbacks: ResumeStreamCallbacks,
+  clerkToken?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clerkToken) {
+    headers["x-clerk-auth-token"] = clerkToken;
+  }
+
   const res = await fetch(`${API_BASE}/api/index/resume`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ job_id: jobId }),
   });
 

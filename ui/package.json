@@ -25,6 +25,7 @@
     "react-markdown": "^9.0.1"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@tailwindcss/typography": "^0.5.19",
     "@types/mime-types": "^2.1.4",
     "@types/react": "^18.2.48",
@@ -32,7 +33,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.2.2",
-    "electron": "^28.1.3",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
@@ -60,12 +61,20 @@
       "target": [
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "public/icon.icns",
-      "identity": null
+      "identity": "Warren Chan (XHL625JL78)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist"
     },
+    "afterPack": "scripts/fix-python-framework.js",
+    "afterSign": "scripts/notarize.js",
     "win": {
       "target": [
         "nsis"

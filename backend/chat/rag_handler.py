@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Optional, List, Dict, Generator, Tuple, Union
 
-from backend.db.vector_store import VectorStore
+from backend.db.vector_store import get_vector_store, VectorStore
 from backend.search.retriever import search_documents, get_context_for_query, get_context_and_sources_for_query, search_files_by_name
 from backend.providers import get_llm_provider, get_config
 from backend.providers.llm.base import BaseLLMProvider, Message
@@ -129,7 +129,7 @@ def get_answer(
         The LLM's response (or generator if streaming)
     """
     if vector_store is None:
-        vector_store = VectorStore()
+        vector_store = get_vector_store()
 
     if is_file_content_query(query):
         file_matches = search_files_by_content(query, vector_store)
@@ -189,7 +189,7 @@ def get_answer_with_sources(
         Tuple of (LLM response or generator, list of source dicts)
     """
     if vector_store is None:
-        vector_store = VectorStore()
+        vector_store = get_vector_store()
 
     if is_file_content_query(query):
         file_matches = search_files_by_content(query, vector_store)
@@ -260,7 +260,7 @@ def chat(
 ) -> None:
     """Interactive chat loop."""
     if vector_store is None:
-        vector_store = VectorStore()
+        vector_store = get_vector_store()
 
     print("\nFinder AI - Chat with your documents")
     print("Type 'quit' or 'exit' to end the conversation")

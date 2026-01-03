@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import {
   streamIndex,
   streamReindex,
@@ -16,6 +17,7 @@ import {
 } from "../api/client";
 
 export function useIndexing() {
+  const { getToken } = useAuth();
   const [isIndexing, setIsIndexing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
@@ -96,14 +98,64 @@ export function useIndexing() {
 
       window.electronAPI?.preventSleep();
 
-      await streamIndex(folder, maxChunks, force, {
+      const clerkToken = await getToken();
+
+      await streamIndex(
+        folder,
+        maxChunks,
+        force,
+        {
+          onProgress: (message) => {
+            setProgress((prev) => [...prev, message]);
+          },
+          onStats: (newStats) => {
+            setStats(newStats);
+          },
+          onCancelled: (newStats) => {
+            setStats(newStats);
+            setProgress((prev) => [...prev, "Indexing paused"]);
+            checkIncompleteJob();
+          },
+          onDone: () => {
+            setIsIndexing(false);
+            window.electronAPI?.allowSleep();
+            refreshStatus();
+          },
+          onError: (err) => {
+            setError(err);
+            setIsIndexing(false);
+            window.electronAPI?.allowSleep();
+          },
+        },
+        clerkToken ?? undefined,
+      );
+    },
+    [refreshStatus, checkIncompleteJob, getToken],
+  );
+
+  const resumeIndexing = useCallback(async () => {
+    if (!incompleteJob) return;
+
+    setIsIndexing(true);
+    setProgress([]);
+    setStats(null);
+    setError(null);
+
+    window.electronAPI?.preventSleep();
+
+    const clerkToken = await getToken();
+
+    await streamResume(
+      incompleteJob.id,
+      {
         onProgress: (message) => {
           setProgress((prev) => [...prev, message]);
         },
         onStats: (newStats) => {
           setStats(newStats);
+          setIncompleteJob(null);
         },
-        onCancelled: (newStats) => {
+        onPaused: (newStats) => {
           setStats(newStats);
           setProgress((prev) => [...prev, "Indexing paused"]);
           checkIncompleteJob();
@@ -118,46 +170,10 @@ export function useIndexing() {
           setIsIndexing(false);
           window.electronAPI?.allowSleep();
         },
-      });
-    },
-    [refreshStatus, checkIncompleteJob],
-  );
-
-  const resumeIndexing = useCallback(async () => {
-    if (!incompleteJob) return;
-
-    setIsIndexing(true);
-    setProgress([]);
-    setStats(null);
-    setError(null);
-
-    window.electronAPI?.preventSleep();
-
-    await streamResume(incompleteJob.id, {
-      onProgress: (message) => {
-        setProgress((prev) => [...prev, message]);
       },
-      onStats: (newStats) => {
-        setStats(newStats);
-        setIncompleteJob(null);
-      },
-      onPaused: (newStats) => {
-        setStats(newStats);
-        setProgress((prev) => [...prev, "Indexing paused"]);
-        checkIncompleteJob();
-      },
-      onDone: () => {
-        setIsIndexing(false);
-        window.electronAPI?.allowSleep();
-        refreshStatus();
-      },
-      onError: (err) => {
-        setError(err);
-        setIsIndexing(false);
-        window.electronAPI?.allowSleep();
-      },
-    });
-  }, [incompleteJob, refreshStatus, checkIncompleteJob]);
+      clerkToken ?? undefined,
+    );
+  }, [incompleteJob, refreshStatus, checkIncompleteJob, getToken]);
 
   const reindexAll = useCallback(
     async (maxChunks: number = 50) => {
@@ -166,28 +182,34 @@ export function useIndexing() {
       setStats(null);
       setError(null);
 
-      await streamReindex(maxChunks, {
-        onProgress: (message) => {
-          setProgress((prev) => [...prev, message]);
+      const clerkToken = await getToken();
+
+      await streamReindex(
+        maxChunks,
+        {
+          onProgress: (message) => {
+            setProgress((prev) => [...prev, message]);
+          },
+          onStats: (newStats) => {
+            setStats(newStats);
+          },
+          onCancelled: (newStats) => {
+            setStats(newStats);
+            setProgress((prev) => [...prev, "Reindexing stopped by user"]);
+          },
+          onDone: () => {
+            setIsIndexing(false);
+            refreshStatus();
+          },
+          onError: (err) => {
+            setError(err);
+            setIsIndexing(false);
+          },
         },
-        onStats: (newStats) => {
-          setStats(newStats);
-        },
-        onCancelled: (newStats) => {
-          setStats(newStats);
-          setProgress((prev) => [...prev, "Reindexing stopped by user"]);
-        },
-        onDone: () => {
-          setIsIndexing(false);
-          refreshStatus();
-        },
-        onError: (err) => {
-          setError(err);
-          setIsIndexing(false);
-        },
-      });
+        clerkToken ?? undefined,
+      );
     },
-    [refreshStatus],
+    [refreshStatus, getToken],
   );
 
   const indexSkippedFiles = useCallback(
@@ -197,28 +219,34 @@ export function useIndexing() {
       setStats(null);
       setError(null);
 
-      await streamIndexSkipped(maxChunks, {
-        onProgress: (message) => {
-          setProgress((prev) => [...prev, message]);
+      const clerkToken = await getToken();
+
+      await streamIndexSkipped(
+        maxChunks,
+        {
+          onProgress: (message) => {
+            setProgress((prev) => [...prev, message]);
+          },
+          onStats: (newStats) => {
+            setStats(newStats);
+          },
+          onCancelled: (newStats) => {
+            setStats(newStats);
+            setProgress((prev) => [...prev, "Indexing stopped by user"]);
+          },
+          onDone: () => {
+            setIsIndexing(false);
+            refreshStatus();
+          },
+          onError: (err) => {
+            setError(err);
+            setIsIndexing(false);
+          },
         },
-        onStats: (newStats) => {
-          setStats(newStats);
-        },
-        onCancelled: (newStats) => {
-          setStats(newStats);
-          setProgress((prev) => [...prev, "Indexing stopped by user"]);
-        },
-        onDone: () => {
-          setIsIndexing(false);
-          refreshStatus();
-        },
-        onError: (err) => {
-          setError(err);
-          setIsIndexing(false);
-        },
-      });
+        clerkToken ?? undefined,
+      );
     },
-    [refreshStatus],
+    [refreshStatus, getToken],
   );
 
   const clearIndex = useCallback(async () => {

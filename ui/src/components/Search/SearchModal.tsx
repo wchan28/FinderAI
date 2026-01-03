@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, SquarePen } from "lucide-react";
 import type { Conversation, ConversationId } from "../../types/chat";
 import { filterConversations } from "../Sidebar/ChatSidebar";
 import { SearchResultItem } from "./SearchResultItem";
@@ -9,13 +9,45 @@ type SearchModalProps = {
   onClose: () => void;
   conversations: Conversation[];
   onSelectConversation: (id: ConversationId) => void;
+  onNewChat?: () => void;
 };
+
+type GroupedConversations = {
+  today: Conversation[];
+  previous30Days: Conversation[];
+};
+
+function groupConversationsByTime(
+  conversations: Conversation[],
+): GroupedConversations {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOf30DaysAgo = new Date(startOfToday);
+  startOf30DaysAgo.setDate(startOf30DaysAgo.getDate() - 30);
+
+  const groups: GroupedConversations = {
+    today: [],
+    previous30Days: [],
+  };
+
+  for (const conv of conversations) {
+    const updatedAt = conv.updatedAt;
+    if (updatedAt >= startOfToday.getTime()) {
+      groups.today.push(conv);
+    } else if (updatedAt >= startOf30DaysAgo.getTime()) {
+      groups.previous30Days.push(conv);
+    }
+  }
+
+  return groups;
+}
 
 export function SearchModal({
   isOpen,
   onClose,
   conversations,
   onSelectConversation,
+  onNewChat,
 }: SearchModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -27,9 +59,12 @@ export function SearchModal({
     [conversations, searchQuery],
   );
 
-  const displayResults = searchQuery.trim()
-    ? filteredResults
-    : conversations.slice(0, 5);
+  const groupedConversations = useMemo(
+    () => groupConversationsByTime(conversations),
+    [conversations],
+  );
+
+  const displayResults = searchQuery.trim() ? filteredResults : conversations;
 
   useEffect(() => {
     if (isOpen) {
@@ -98,7 +133,7 @@ export function SearchModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-xl w-full mx-4 max-h-[70vh] flex flex-col">
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-xl w-full mx-4 h-[70vh] max-h-[600px] flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
           <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <input
@@ -110,14 +145,6 @@ export function SearchModal({
             placeholder="Search conversations..."
             className="flex-1 text-gray-900 placeholder-gray-400 outline-none text-base"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -127,20 +154,26 @@ export function SearchModal({
         </div>
 
         <div ref={resultsContainerRef} className="flex-1 overflow-y-auto p-2">
-          {displayResults.length === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-500">
-              {searchQuery.trim()
-                ? "No conversations match your search"
-                : "No conversations yet"}
-            </div>
-          ) : (
-            <>
-              {!searchQuery.trim() && (
-                <div className="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
-                  Recent Conversations
-                </div>
-              )}
-              {displayResults.map((conversation, index) => (
+          {onNewChat && (
+            <button
+              onClick={() => {
+                onNewChat();
+                onClose();
+              }}
+              className="w-full text-left px-4 py-3 rounded-lg transition-colors hover:bg-gray-50 flex items-center gap-3"
+            >
+              <SquarePen className="w-4 h-4 text-gray-500" />
+              <span className="text-gray-900">New chat</span>
+            </button>
+          )}
+
+          {searchQuery.trim() ? (
+            filteredResults.length === 0 ? (
+              <div className="px-4 py-8 text-center text-gray-500">
+                No conversations match your search
+              </div>
+            ) : (
+              filteredResults.map((conversation, index) => (
                 <SearchResultItem
                   key={conversation.id}
                   conversation={conversation}
@@ -151,35 +184,62 @@ export function SearchModal({
                     onClose();
                   }}
                 />
-              ))}
+              ))
+            )
+          ) : conversations.length === 0 ? (
+            <div className="px-4 py-8 text-center text-gray-500">
+              No conversations yet
+            </div>
+          ) : (
+            <>
+              {groupedConversations.today.length > 0 && (
+                <>
+                  <div className="px-4 py-2 text-xs font-medium text-gray-400">
+                    Today
+                  </div>
+                  {groupedConversations.today.map((conversation) => {
+                    const index = conversations.indexOf(conversation);
+                    return (
+                      <SearchResultItem
+                        key={conversation.id}
+                        conversation={conversation}
+                        searchQuery=""
+                        isSelected={index === selectedIndex}
+                        onClick={() => {
+                          onSelectConversation(conversation.id);
+                          onClose();
+                        }}
+                      />
+                    );
+                  })}
+                </>
+              )}
+
+              {groupedConversations.previous30Days.length > 0 && (
+                <>
+                  <div className="px-4 py-2 text-xs font-medium text-gray-400">
+                    Previous 30 Days
+                  </div>
+                  {groupedConversations.previous30Days.map((conversation) => {
+                    const index = conversations.indexOf(conversation);
+                    return (
+                      <SearchResultItem
+                        key={conversation.id}
+                        conversation={conversation}
+                        searchQuery=""
+                        isSelected={index === selectedIndex}
+                        onClick={() => {
+                          onSelectConversation(conversation.id);
+                          onClose();
+                        }}
+                      />
+                    );
+                  })}
+                </>
+              )}
+
             </>
           )}
-        </div>
-
-        <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
-          <span className="inline-flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">
-              ↑
-            </kbd>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">
-              ↓
-            </kbd>
-            to navigate
-          </span>
-          <span className="mx-2">·</span>
-          <span className="inline-flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">
-              Enter
-            </kbd>
-            to select
-          </span>
-          <span className="mx-2">·</span>
-          <span className="inline-flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">
-              Esc
-            </kbd>
-            to close
-          </span>
         </div>
       </div>
     </div>

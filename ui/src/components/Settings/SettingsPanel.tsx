@@ -22,6 +22,7 @@ import { ProgressBar } from "../Indexing/ProgressBar";
 import { ProviderSettings } from "./ProviderSettings";
 import { useIndexing } from "../../hooks/useIndexing";
 import { useAnalytics } from "../../providers/AnalyticsProvider";
+import { useIsAdmin } from "../../hooks/useIsAdmin";
 import { getSettings, saveApiKey } from "../../api/client";
 import type { SkippedByReason, SkippedFile } from "../../api/client";
 
@@ -121,6 +122,7 @@ export function SettingsPanel({
     refreshStatus,
   } = useIndexing();
   const { trackEvent } = useAnalytics();
+  const isAdmin = useIsAdmin();
 
   useEffect(() => {
     if (isOpen) {
@@ -361,14 +363,16 @@ export function SettingsPanel({
                   Index Folder
                 </button>
               )}
-              <button
-                onClick={handleClearIndex}
-                disabled={isIndexing || isClearing || !status?.indexed_files}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Clear
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handleClearIndex}
+                  disabled={isIndexing || isClearing || !status?.indexed_files}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear
+                </button>
+              )}
             </div>
 
             {error && (
@@ -632,15 +636,17 @@ export function SettingsPanel({
               )}
             </div>
 
-            <div className="border-t border-gray-200 pt-4">
-              <p className="text-xs text-gray-400 mb-2">Developer options</p>
-              <button
-                onClick={onRunSetup}
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
-              >
-                Run Setup Wizard
-              </button>
-            </div>
+            {isAdmin && (
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-xs text-gray-400 mb-2">Developer options</p>
+                <button
+                  onClick={onRunSetup}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Run Setup Wizard
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.db.vector_store import VectorStore
+from backend.db.vector_store import get_vector_store
 from backend.chat.rag_handler import get_answer_with_sources
 
 router = APIRouter()
@@ -18,7 +18,7 @@ class ChatRequest(BaseModel):
 
 async def generate_chat_stream(message: str, n_context_results: int):
     """Generate SSE stream for chat response."""
-    vector_store = VectorStore()
+    vector_store = get_vector_store()
 
     if vector_store.count() == 0:
         yield f"data: {json.dumps({'type': 'error', 'content': 'No documents indexed. Please index a folder first.'})}\n\n"

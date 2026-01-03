@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
-from backend.db.vector_store import VectorStore
+from backend.db.vector_store import get_vector_store, VectorStore
 from backend.indexer.embedder import generate_embedding
 from backend.providers import get_config, get_reranking_provider
 from backend.providers.config import get_scaled_initial_results
@@ -211,7 +211,7 @@ def search_files_by_name(
 ) -> List[Dict]:
     """Search indexed files by name/path pattern."""
     if vector_store is None:
-        vector_store = VectorStore()
+        vector_store = get_vector_store()
 
     all_files = vector_store.get_indexed_files()
     query_terms = _extract_search_terms(query)
@@ -259,7 +259,7 @@ def search_documents(
     Dynamically scales initial_results based on corpus size for better coverage.
     """
     if vector_store is None:
-        vector_store = VectorStore()
+        vector_store = get_vector_store()
 
     config = get_config()
     chunk_count = vector_store.count()
@@ -381,7 +381,7 @@ def get_context_and_sources_for_query(
         Tuple of (context_string, list_of_source_results)
     """
     if vector_store is None:
-        vector_store = VectorStore()
+        vector_store = get_vector_store()
 
     query_lower = query.lower()
     config = get_config()

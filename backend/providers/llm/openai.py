@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Generator, List, Optional
 
 from backend.providers.llm.base import BaseLLMProvider, Message
+from backend.providers.config import is_proxy_mode_enabled
+from backend.providers.proxy_client import proxy_llm_chat
 
 
 OPENAI_MODELS = [
@@ -52,9 +54,17 @@ class OpenAILLMProvider(BaseLLMProvider):
         messages: List[Message],
         stream: bool = False,
     ) -> str | Generator[str, None, None]:
-        client = self._get_client()
         message_dicts = self._messages_to_dicts(messages)
 
+        if is_proxy_mode_enabled():
+            return proxy_llm_chat(
+                messages=message_dicts,
+                model=self._model,
+                stream=stream,
+                provider="openai",
+            )
+
+        client = self._get_client()
         if stream:
             return self._stream_response(message_dicts)
         else:

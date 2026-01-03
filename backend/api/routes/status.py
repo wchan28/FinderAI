@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 
-from backend.db.vector_store import VectorStore
+from backend.db.vector_store import get_vector_store
 from backend.db.metadata_store import MetadataStore
 
 router = APIRouter()
@@ -43,7 +43,7 @@ class ModelsResponse(BaseModel):
 @router.get("/status", response_model=StatusResponse)
 async def get_status():
     """Get indexing status and list of indexed files."""
-    vector_store = VectorStore()
+    vector_store = get_vector_store()
     metadata_store = MetadataStore()
 
     files = metadata_store.get_all_files()

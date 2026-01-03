@@ -165,6 +165,35 @@ function findPythonPath(): string {
   if (process.platform === "win32") {
     return "python";
   }
+
+  // In dev mode, prefer virtual environment with Python 3.12+ and all dependencies
+  const backendVenvPath = path.join(__dirname, "..", "..", "backend", "venv312", "bin", "python");
+  if (fs.existsSync(backendVenvPath)) {
+    console.log(`Using Python from venv: ${backendVenvPath}`);
+    return backendVenvPath;
+  }
+
+  // Fallback: prefer Python 3.12+ for ChromaDB 1.x compatibility
+  const pythonCandidates = [
+    "/usr/local/bin/python3.12",
+    "/usr/local/bin/python3.13",
+    "/opt/homebrew/bin/python3.12",
+    "/opt/homebrew/bin/python3.13",
+    "python3.12",
+    "python3.13",
+    "python3",
+  ];
+
+  for (const candidate of pythonCandidates) {
+    try {
+      execSync(`"${candidate}" --version`, { encoding: "utf8", timeout: 2000 });
+      console.log(`Using Python: ${candidate}`);
+      return candidate;
+    } catch {
+      // Try next candidate
+    }
+  }
+
   return "python3";
 }
 

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { streamChat, Source } from "../api/client";
 import type { ThinkingStatus } from "../components/Chat/ThinkingIndicator";
 
@@ -19,6 +20,7 @@ type UseChatOptions = {
 
 export function useChat(options: UseChatOptions = {}) {
   const { conversationId, initialMessages, onMessagesChange } = options;
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const onMessagesChangeRef = useRef(onMessagesChange);
@@ -100,6 +102,8 @@ export function useChat(options: UseChatOptions = {}) {
       let sources: Source[] = [];
       let hasReceivedChunk = false;
 
+      const clerkToken = await getToken();
+
       try {
         await streamChat(
           content,
@@ -159,6 +163,7 @@ export function useChat(options: UseChatOptions = {}) {
             },
           },
           controller.signal,
+          clerkToken ?? undefined,
         );
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -178,7 +183,7 @@ export function useChat(options: UseChatOptions = {}) {
         abortControllerRef.current = null;
       }
     },
-    [setMessagesWithCallback],
+    [setMessagesWithCallback, getToken],
   );
 
   const clearMessages = useCallback(() => {
