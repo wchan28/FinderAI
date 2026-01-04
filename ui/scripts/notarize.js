@@ -3,7 +3,13 @@ const path = require('path');
 
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
+
   if (electronPlatformName !== 'darwin') {
+    return;
+  }
+
+  if (process.env.CSC_IDENTITY_AUTO_DISCOVERY === 'false') {
+    console.log('Skipping notarization - code signing is disabled');
     return;
   }
 
