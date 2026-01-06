@@ -13,3 +13,4 @@ cohere>=5.0.0
 voyageai>=0.3.0
 rank-bm25>=0.2.2
 keyring>=24.0.0
+onnxruntime>=1.16.0

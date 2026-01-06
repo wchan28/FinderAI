@@ -78,6 +78,24 @@ hiddenimports = [
     "sniffio",
     "certifi",
     "h11",
+    # ONNX Runtime (required by ChromaDB 0.5+ for default embedding function)
+    "onnxruntime",
+    "onnxruntime.capi",
+    "onnxruntime.capi._pybind_state",
+    # jaraco modules (required by keyring and pkg_resources)
+    "jaraco",
+    "jaraco.text",
+    "jaraco.functools",
+    "jaraco.context",
+    "jaraco.classes",
+    # pkg_resources and dependencies
+    "pkg_resources",
+    "pkg_resources.extern",
+    "platformdirs",
+    "packaging",
+    "packaging.version",
+    "packaging.specifiers",
+    "packaging.requirements",
     # Backend modules
     "backend",
     "backend.api",
@@ -94,6 +112,8 @@ hiddenimports = [
 hiddenimports += collect_submodules("chromadb")
 hiddenimports += collect_submodules("pydantic")
 hiddenimports += collect_submodules("starlette")
+hiddenimports += collect_submodules("onnxruntime")
+hiddenimports += collect_submodules("jaraco")
 
 # Collect data files needed at runtime
 datas = []
