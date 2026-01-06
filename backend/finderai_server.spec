@@ -50,6 +50,12 @@ hiddenimports = [
     "chromadb.segment.impl",
     "chromadb.telemetry",
     "chromadb.telemetry.posthog",
+    "chromadb.execution",
+    "chromadb.execution.executor",
+    "chromadb.execution.executor.local",
+    "chromadb.execution.expression",
+    "chromadb.quota",
+    "chromadb.rate_limit",
     "hnswlib",
     "sqlite3",
     # Document extractors
