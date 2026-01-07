@@ -16,7 +16,10 @@ class BM25Index:
 
     _save_lock = threading.Lock()
 
-    def __init__(self, persist_path: str = "./data/bm25_index.pkl"):
+    def __init__(self, persist_path: str = None):
+        if persist_path is None:
+            from backend.db.metadata_store import get_data_dir
+            persist_path = str(get_data_dir() / "bm25_index.pkl")
         self._persist_path = Path(persist_path)
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
 
