@@ -315,7 +315,6 @@ def index_folder(
     Returns:
         Dict with indexing statistics (includes 'cancelled' bool if stopped early)
     """
-    owns_vector_store = vector_store is None
     if vector_store is None:
         expected_dim = get_embedding_dimension()
         vector_store = VectorStore(expected_dimension=expected_dim)
@@ -370,124 +369,119 @@ def index_folder(
     db_lock = threading.Lock()
     completed_count = 0
 
-    try:
-        with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
-            futures: dict[Future, str] = {}
-            for file_path in files:
-                if cancel_event and cancel_event.is_set():
-                    break
-                futures[executor.submit(
-                    _process_single_file,
-                    file_path,
-                    vector_store,
-                    metadata_store,
-                    db_lock,
-                    force_reindex,
-                    max_chunks_per_file
-                )] = file_path
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        futures: dict[Future, str] = {}
+        for file_path in files:
+            if cancel_event and cancel_event.is_set():
+                break
+            futures[executor.submit(
+                _process_single_file,
+                file_path,
+                vector_store,
+                metadata_store,
+                db_lock,
+                force_reindex,
+                max_chunks_per_file
+            )] = file_path
 
-            for future in as_completed(futures):
-                if cancel_event and cancel_event.is_set():
-                    stats["cancelled"] = True
-                    stats["paused"] = True
-                    if progress_callback:
-                        progress_callback("Indexing paused")
-                    executor.shutdown(wait=True, cancel_futures=False)
-                    if job_id is not None:
-                        metadata_store.update_job_status(job_id, "paused")
-                        metadata_store.update_indexing_job_progress(job_id, completed_count)
-                    break
-
-                completed_count += 1
-                result = future.result()
-                file_path = result["file_path"]
-
-                file_status = "completed" if not result.get("error") else "error"
-                if result.get("skipped"):
-                    file_status = "skipped"
+        for future in as_completed(futures):
+            if cancel_event and cancel_event.is_set():
+                stats["cancelled"] = True
+                stats["paused"] = True
+                if progress_callback:
+                    progress_callback("Indexing paused")
+                executor.shutdown(wait=True, cancel_futures=False)
                 if job_id is not None:
-                    metadata_store.update_job_file_status(job_id, file_path, file_status)
-                    if completed_count % 10 == 0:
-                        metadata_store.update_indexing_job_progress(job_id, completed_count)
+                    metadata_store.update_job_status(job_id, "paused")
+                    metadata_store.update_indexing_job_progress(job_id, completed_count)
+                break
 
-                if result["action"] == "skipped_unchanged":
-                    stats["skipped_unchanged"] += 1
-                    if progress_callback:
-                        progress_callback(f"[{completed_count}/{len(files)}] Skipped (unchanged): {result['file_name']}")
-                elif result["error"]:
-                    stats["errors"].append(f"Error indexing {result['file_path']}: {result['error']}")
-                    if progress_callback:
-                        progress_callback(f"[{completed_count}/{len(files)}] ERROR: {result['file_name']} - {result['error']}")
-                elif result["skipped"]:
-                    stats["skipped_limits"] += 1
-                    stats["file_times"].append({
-                        "file": result["file_name"],
-                        "skipped": True,
-                        "reason": result["skip_reason"]
-                    })
+            completed_count += 1
+            result = future.result()
+            file_path = result["file_path"]
 
-                    skip_reason = result["skip_reason"]
-                    category = _categorize_skip_reason(skip_reason)
-                    skipped_entry = {
-                        "file_path": result["file_path"],
-                        "file_name": result["file_name"],
-                        "reason": skip_reason,
-                    }
-                    if result.get("chunks_would_be"):
-                        skipped_entry["chunks_would_be"] = result["chunks_would_be"]
+            file_status = "completed" if not result.get("error") else "error"
+            if result.get("skipped"):
+                file_status = "skipped"
+            if job_id is not None:
+                metadata_store.update_job_file_status(job_id, file_path, file_status)
+                if completed_count % 10 == 0:
+                    metadata_store.update_indexing_job_progress(job_id, completed_count)
 
-                    stats["skipped_by_reason"][category].append(skipped_entry)
+            if result["action"] == "skipped_unchanged":
+                stats["skipped_unchanged"] += 1
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(files)}] Skipped (unchanged): {result['file_name']}")
+            elif result["error"]:
+                stats["errors"].append(f"Error indexing {result['file_path']}: {result['error']}")
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(files)}] ERROR: {result['file_name']} - {result['error']}")
+            elif result["skipped"]:
+                stats["skipped_limits"] += 1
+                stats["file_times"].append({
+                    "file": result["file_name"],
+                    "skipped": True,
+                    "reason": result["skip_reason"]
+                })
 
-                    if category == "chunk_limit_exceeded":
-                        stats["skipped_files"].append(skipped_entry)
+                skip_reason = result["skip_reason"]
+                category = _categorize_skip_reason(skip_reason)
+                skipped_entry = {
+                    "file_path": result["file_path"],
+                    "file_name": result["file_name"],
+                    "reason": skip_reason,
+                }
+                if result.get("chunks_would_be"):
+                    skipped_entry["chunks_would_be"] = result["chunks_would_be"]
 
-                    if progress_callback:
-                        progress_callback(f"[{completed_count}/{len(files)}] Skipped ({skip_reason}): {result['file_name']}")
-                else:
-                    stats["indexed_files"] += 1
-                    stats["total_chunks"] += result["chunks"]
-                    stats["total_embed_time"] += result["embed_time"]
-                    stats["file_times"].append({
-                        "file": result["file_name"],
-                        "chunks": result["chunks"],
-                        "total_time": result["total_time"],
-                        "embed_time": result["embed_time"],
-                        "extract_time": result["extract_time"],
-                    })
-                    if progress_callback:
-                        rate = result["chunks"] / result["embed_time"] if result["embed_time"] > 0 else 0
-                        progress_callback(
-                            f"[{completed_count}/{len(files)}] Indexed: {result['file_name']} "
-                            f"({result['chunks']} chunks, {result['total_time']:.1f}s, {rate:.1f} c/s)"
-                        )
+                stats["skipped_by_reason"][category].append(skipped_entry)
 
-        stats["total_time"] = time.time() - folder_start
-        stats["job_id"] = job_id
+                if category == "chunk_limit_exceeded":
+                    stats["skipped_files"].append(skipped_entry)
 
-        if job_id is not None and not stats.get("paused"):
-            metadata_store.complete_indexing_job(job_id, "completed")
-            metadata_store.update_indexing_job_progress(job_id, completed_count)
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(files)}] Skipped ({skip_reason}): {result['file_name']}")
+            else:
+                stats["indexed_files"] += 1
+                stats["total_chunks"] += result["chunks"]
+                stats["total_embed_time"] += result["embed_time"]
+                stats["file_times"].append({
+                    "file": result["file_name"],
+                    "chunks": result["chunks"],
+                    "total_time": result["total_time"],
+                    "embed_time": result["embed_time"],
+                    "extract_time": result["extract_time"],
+                })
+                if progress_callback:
+                    rate = result["chunks"] / result["embed_time"] if result["embed_time"] > 0 else 0
+                    progress_callback(
+                        f"[{completed_count}/{len(files)}] Indexed: {result['file_name']} "
+                        f"({result['chunks']} chunks, {result['total_time']:.1f}s, {rate:.1f} c/s)"
+                    )
 
-        if progress_callback and stats["indexed_files"] > 0:
-            sorted_times = sorted(
-                [f for f in stats["file_times"] if not f.get("skipped")],
-                key=lambda x: x.get("total_time", 0),
-                reverse=True
-            )
-            progress_callback("\n" + "=" * 50)
-            progress_callback("TIMING SUMMARY")
-            progress_callback("=" * 50)
-            progress_callback(f"Total time: {stats['total_time']:.1f}s")
-            progress_callback(f"Total embed time: {stats['total_embed_time']:.1f}s")
-            if stats["total_chunks"] > 0 and stats["total_embed_time"] > 0:
-                progress_callback(f"Avg embed rate: {stats['total_chunks']/stats['total_embed_time']:.1f} chunks/sec")
-            progress_callback(f"\nTop 10 slowest files:")
-            for f in sorted_times[:10]:
-                progress_callback(f"  {f['file']}: {f['total_time']:.1f}s ({f['chunks']} chunks, embed: {f['embed_time']:.1f}s)")
+    stats["total_time"] = time.time() - folder_start
+    stats["job_id"] = job_id
 
-    finally:
-        if owns_vector_store and vector_store is not None:
-            vector_store.close()
+    if job_id is not None and not stats.get("paused"):
+        metadata_store.complete_indexing_job(job_id, "completed")
+        metadata_store.update_indexing_job_progress(job_id, completed_count)
+
+    if progress_callback and stats["indexed_files"] > 0:
+        sorted_times = sorted(
+            [f for f in stats["file_times"] if not f.get("skipped")],
+            key=lambda x: x.get("total_time", 0),
+            reverse=True
+        )
+        progress_callback("\n" + "=" * 50)
+        progress_callback("TIMING SUMMARY")
+        progress_callback("=" * 50)
+        progress_callback(f"Total time: {stats['total_time']:.1f}s")
+        progress_callback(f"Total embed time: {stats['total_embed_time']:.1f}s")
+        if stats["total_chunks"] > 0 and stats["total_embed_time"] > 0:
+            progress_callback(f"Avg embed rate: {stats['total_chunks']/stats['total_embed_time']:.1f} chunks/sec")
+        progress_callback(f"\nTop 10 slowest files:")
+        for f in sorted_times[:10]:
+            progress_callback(f"  {f['file']}: {f['total_time']:.1f}s ({f['chunks']} chunks, embed: {f['embed_time']:.1f}s)")
 
     return stats
 
@@ -516,7 +510,6 @@ def reindex_files(
     Returns:
         Dict with indexing statistics (includes 'cancelled' bool if stopped early)
     """
-    owns_vector_store = vector_store is None
     if vector_store is None:
         expected_dim = get_embedding_dimension()
         vector_store = VectorStore(expected_dimension=expected_dim)
@@ -560,100 +553,93 @@ def reindex_files(
     }
 
     if not existing_files:
-        if owns_vector_store and vector_store is not None:
-            vector_store.close()
         return stats
 
     folder_start = time.time()
     db_lock = threading.Lock()
     completed_count = 0
 
-    try:
-        with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
-            futures: dict[Future, str] = {}
-            for file_path in existing_files:
-                if cancel_event and cancel_event.is_set():
-                    break
-                futures[executor.submit(
-                    _process_single_file,
-                    file_path,
-                    vector_store,
-                    metadata_store,
-                    db_lock,
-                    True,
-                    max_chunks_per_file
-                )] = file_path
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        futures: dict[Future, str] = {}
+        for file_path in existing_files:
+            if cancel_event and cancel_event.is_set():
+                break
+            futures[executor.submit(
+                _process_single_file,
+                file_path,
+                vector_store,
+                metadata_store,
+                db_lock,
+                True,
+                max_chunks_per_file
+            )] = file_path
 
-            for future in as_completed(futures):
-                if cancel_event and cancel_event.is_set():
-                    stats["cancelled"] = True
-                    if progress_callback:
-                        progress_callback("Reindexing cancelled by user")
-                    executor.shutdown(wait=True, cancel_futures=False)
-                    break
+        for future in as_completed(futures):
+            if cancel_event and cancel_event.is_set():
+                stats["cancelled"] = True
+                if progress_callback:
+                    progress_callback("Reindexing cancelled by user")
+                executor.shutdown(wait=True, cancel_futures=False)
+                break
 
-                completed_count += 1
-                result = future.result()
+            completed_count += 1
+            result = future.result()
 
-                if result["error"]:
-                    stats["errors"].append(f"Error indexing {result['file_path']}: {result['error']}")
-                    if progress_callback:
-                        progress_callback(f"[{completed_count}/{len(existing_files)}] ERROR: {result['file_name']} - {result['error']}")
-                elif result["skipped"]:
-                    stats["skipped_limits"] += 1
-                    stats["file_times"].append({
-                        "file": result["file_name"],
-                        "skipped": True,
-                        "reason": result["skip_reason"]
-                    })
+            if result["error"]:
+                stats["errors"].append(f"Error indexing {result['file_path']}: {result['error']}")
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(existing_files)}] ERROR: {result['file_name']} - {result['error']}")
+            elif result["skipped"]:
+                stats["skipped_limits"] += 1
+                stats["file_times"].append({
+                    "file": result["file_name"],
+                    "skipped": True,
+                    "reason": result["skip_reason"]
+                })
 
-                    skip_reason = result["skip_reason"]
-                    category = _categorize_skip_reason(skip_reason)
-                    skipped_entry = {
-                        "file_path": result["file_path"],
-                        "file_name": result["file_name"],
-                        "reason": skip_reason,
-                    }
-                    if result.get("chunks_would_be"):
-                        skipped_entry["chunks_would_be"] = result["chunks_would_be"]
+                skip_reason = result["skip_reason"]
+                category = _categorize_skip_reason(skip_reason)
+                skipped_entry = {
+                    "file_path": result["file_path"],
+                    "file_name": result["file_name"],
+                    "reason": skip_reason,
+                }
+                if result.get("chunks_would_be"):
+                    skipped_entry["chunks_would_be"] = result["chunks_would_be"]
 
-                    stats["skipped_by_reason"][category].append(skipped_entry)
+                stats["skipped_by_reason"][category].append(skipped_entry)
 
-                    if category == "chunk_limit_exceeded":
-                        stats["skipped_files"].append(skipped_entry)
+                if category == "chunk_limit_exceeded":
+                    stats["skipped_files"].append(skipped_entry)
 
-                    if progress_callback:
-                        progress_callback(f"[{completed_count}/{len(existing_files)}] Skipped ({skip_reason}): {result['file_name']}")
-                else:
-                    stats["indexed_files"] += 1
-                    stats["total_chunks"] += result["chunks"]
-                    stats["total_embed_time"] += result["embed_time"]
-                    stats["file_times"].append({
-                        "file": result["file_name"],
-                        "chunks": result["chunks"],
-                        "total_time": result["total_time"],
-                        "embed_time": result["embed_time"],
-                        "extract_time": result["extract_time"],
-                    })
-                    if progress_callback:
-                        rate = result["chunks"] / result["embed_time"] if result["embed_time"] > 0 else 0
-                        progress_callback(
-                            f"[{completed_count}/{len(existing_files)}] Reindexed: {result['file_name']} "
-                            f"({result['chunks']} chunks, {result['total_time']:.1f}s, {rate:.1f} c/s)"
-                        )
+                if progress_callback:
+                    progress_callback(f"[{completed_count}/{len(existing_files)}] Skipped ({skip_reason}): {result['file_name']}")
+            else:
+                stats["indexed_files"] += 1
+                stats["total_chunks"] += result["chunks"]
+                stats["total_embed_time"] += result["embed_time"]
+                stats["file_times"].append({
+                    "file": result["file_name"],
+                    "chunks": result["chunks"],
+                    "total_time": result["total_time"],
+                    "embed_time": result["embed_time"],
+                    "extract_time": result["extract_time"],
+                })
+                if progress_callback:
+                    rate = result["chunks"] / result["embed_time"] if result["embed_time"] > 0 else 0
+                    progress_callback(
+                        f"[{completed_count}/{len(existing_files)}] Reindexed: {result['file_name']} "
+                        f"({result['chunks']} chunks, {result['total_time']:.1f}s, {rate:.1f} c/s)"
+                    )
 
-        stats["total_time"] = time.time() - folder_start
+    stats["total_time"] = time.time() - folder_start
 
-        if progress_callback and stats["indexed_files"] > 0:
-            progress_callback("\n" + "=" * 50)
-            progress_callback("REINDEX COMPLETE")
-            progress_callback("=" * 50)
-            progress_callback(f"Total time: {stats['total_time']:.1f}s")
-            progress_callback(f"Files reindexed: {stats['indexed_files']}")
-            progress_callback(f"Total chunks: {stats['total_chunks']}")
-
-    finally:
-        if owns_vector_store and vector_store is not None:
-            vector_store.close()
+    if progress_callback and stats["indexed_files"] > 0:
+        progress_callback("\n" + "=" * 50)
+        progress_callback("REINDEX COMPLETE")
+        progress_callback("=" * 50)
+        progress_callback(f"Total time: {stats['total_time']:.1f}s")
+        progress_callback(f"Files reindexed: {stats['indexed_files']}")
+        progress_callback(f"Total chunks: {stats['total_chunks']}")
 
     return stats

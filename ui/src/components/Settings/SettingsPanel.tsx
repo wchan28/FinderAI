@@ -107,6 +107,7 @@ export function SettingsPanel({
   >("idle");
   const {
     isIndexing,
+    isStopping,
     isClearing,
     progress,
     stats,
@@ -348,19 +349,38 @@ export function SettingsPanel({
               {isIndexing ? (
                 <button
                   onClick={handleStop}
-                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                  disabled={isStopping}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Square className="w-4 h-4" />
-                  Stop Indexing
+                  {isStopping ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-4 h-4" />
+                      Stop Indexing
+                    </>
+                  )}
                 </button>
               ) : (
                 <button
                   onClick={handleIndex}
-                  disabled={!folder}
+                  disabled={!folder || isStopping}
                   className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
-                  <Database className="w-4 h-4" />
-                  Index Folder
+                  {isStopping ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4" />
+                      Index Folder
+                    </>
+                  )}
                 </button>
               )}
               {isAdmin && (
@@ -381,7 +401,7 @@ export function SettingsPanel({
               </div>
             )}
 
-            <ProgressBar messages={progress} isActive={isIndexing} />
+            <ProgressBar messages={progress} isActive={isIndexing && !isStopping} />
 
             {stats && !isIndexing && (
               <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg">

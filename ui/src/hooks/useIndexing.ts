@@ -19,6 +19,7 @@ import {
 export function useIndexing() {
   const { getToken } = useAuth();
   const [isIndexing, setIsIndexing] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
   const [stats, setStats] = useState<IndexStats | null>(null);
@@ -81,15 +82,25 @@ export function useIndexing() {
   }, [restoreResults, checkIncompleteJob]);
 
   const stopIndexing = useCallback(async () => {
+    setIsStopping(true);
+    setIsIndexing(false);
+    setProgress([]);
+    window.electronAPI?.allowSleep();
     try {
       await cancelIndexApi();
     } catch (err) {
       console.error("Failed to cancel indexing:", err);
+      setIsStopping(false);
     }
   }, []);
 
   const startIndexing = useCallback(
     async (folder: string, maxChunks: number = 50, force: boolean = false) => {
+      if (isStopping) {
+        setError("Please wait, previous indexing is still stopping...");
+        return;
+      }
+
       setIsIndexing(true);
       setProgress([]);
       setStats(null);
@@ -114,23 +125,26 @@ export function useIndexing() {
           onCancelled: (newStats) => {
             setStats(newStats);
             setProgress((prev) => [...prev, "Indexing paused"]);
+            setIsStopping(false);
             checkIncompleteJob();
           },
           onDone: () => {
             setIsIndexing(false);
+            setIsStopping(false);
             window.electronAPI?.allowSleep();
             refreshStatus();
           },
           onError: (err) => {
             setError(err);
             setIsIndexing(false);
+            setIsStopping(false);
             window.electronAPI?.allowSleep();
           },
         },
         clerkToken ?? undefined,
       );
     },
-    [refreshStatus, checkIncompleteJob, getToken],
+    [refreshStatus, checkIncompleteJob, getToken, isStopping],
   );
 
   const resumeIndexing = useCallback(async () => {
@@ -158,16 +172,19 @@ export function useIndexing() {
         onPaused: (newStats) => {
           setStats(newStats);
           setProgress((prev) => [...prev, "Indexing paused"]);
+          setIsStopping(false);
           checkIncompleteJob();
         },
         onDone: () => {
           setIsIndexing(false);
+          setIsStopping(false);
           window.electronAPI?.allowSleep();
           refreshStatus();
         },
         onError: (err) => {
           setError(err);
           setIsIndexing(false);
+          setIsStopping(false);
           window.electronAPI?.allowSleep();
         },
       },
@@ -196,14 +213,17 @@ export function useIndexing() {
           onCancelled: (newStats) => {
             setStats(newStats);
             setProgress((prev) => [...prev, "Reindexing stopped by user"]);
+            setIsStopping(false);
           },
           onDone: () => {
             setIsIndexing(false);
+            setIsStopping(false);
             refreshStatus();
           },
           onError: (err) => {
             setError(err);
             setIsIndexing(false);
+            setIsStopping(false);
           },
         },
         clerkToken ?? undefined,
@@ -233,14 +253,17 @@ export function useIndexing() {
           onCancelled: (newStats) => {
             setStats(newStats);
             setProgress((prev) => [...prev, "Indexing stopped by user"]);
+            setIsStopping(false);
           },
           onDone: () => {
             setIsIndexing(false);
+            setIsStopping(false);
             refreshStatus();
           },
           onError: (err) => {
             setError(err);
             setIsIndexing(false);
+            setIsStopping(false);
           },
         },
         clerkToken ?? undefined,
@@ -268,6 +291,7 @@ export function useIndexing() {
 
   return {
     isIndexing,
+    isStopping,
     isClearing,
     progress,
     stats,
