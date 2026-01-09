@@ -99,11 +99,13 @@ export function MessageList({
     }
 
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-4">
-        <div className="text-center mb-6">
+      <div className="flex-1 flex flex-col items-center px-4">
+        <div style={{ height: "calc(50vh - 128px)" }} className="shrink-0" />
+        <div className="text-center mb-6 shrink-0">
           <h1 className="text-2xl font-semibold text-gray-900">{greeting}</h1>
         </div>
-        <div className="w-full max-w-2xl">{renderInput}</div>
+        <div className="w-full max-w-2xl shrink-0">{renderInput}</div>
+        <div className="flex-1 min-h-0" />
       </div>
     );
   }

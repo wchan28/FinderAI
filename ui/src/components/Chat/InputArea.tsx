@@ -22,14 +22,15 @@ export function InputArea({
 }: InputAreaProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const maxHeight = variant === "centered" ? 288 : 200;
 
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
     }
-  }, [input]);
+  }, [input, maxHeight]);
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim();
@@ -58,7 +59,7 @@ export function InputArea({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="flex-1 bg-transparent resize-none outline-none text-gray-900 placeholder-gray-400 overflow-y-auto leading-6 py-1.5"
-        style={{ minHeight: "28px", maxHeight: "200px" }}
+        style={{ minHeight: "28px", maxHeight: `${maxHeight}px` }}
         rows={1}
         disabled={disabled}
         autoFocus={autoFocus}
