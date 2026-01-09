@@ -19,24 +19,41 @@ export function ChatContainer({
   hasIndexedFiles,
   onOpenSettings,
 }: ChatContainerProps) {
+  const isLandingState = messages.length === 0 && hasIndexedFiles;
+
   return (
     <div className="flex flex-col h-full">
       <MessageList
         messages={messages}
         hasIndexedFiles={hasIndexedFiles}
         onOpenSettings={onOpenSettings}
-      />
-      <InputArea
-        onSend={onSendMessage}
-        onStop={onStopGeneration}
-        disabled={isLoading || !hasIndexedFiles}
-        isLoading={isLoading}
-        placeholder={
-          hasIndexedFiles
-            ? "Ask a question about your files..."
-            : "Index your files first to start asking questions..."
+        renderInput={
+          isLandingState ? (
+            <InputArea
+              onSend={onSendMessage}
+              onStop={onStopGeneration}
+              disabled={isLoading}
+              isLoading={isLoading}
+              placeholder="Ask a question about your files..."
+              variant="centered"
+              autoFocus
+            />
+          ) : undefined
         }
       />
+      {!isLandingState && (
+        <InputArea
+          onSend={onSendMessage}
+          onStop={onStopGeneration}
+          disabled={isLoading || !hasIndexedFiles}
+          isLoading={isLoading}
+          placeholder={
+            hasIndexedFiles
+              ? "Ask a question about your files..."
+              : "Index your files first to start asking questions..."
+          }
+        />
+      )}
     </div>
   );
 }

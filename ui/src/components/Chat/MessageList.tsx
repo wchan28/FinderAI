@@ -1,19 +1,60 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { MessageBubble } from "./MessageBubble";
-import { FolderOpen, Search, Settings } from "lucide-react";
+import { FolderOpen, Settings } from "lucide-react";
 import type { Message } from "../../hooks/useChat";
 
 type MessageListProps = {
   messages: Message[];
   hasIndexedFiles: boolean;
   onOpenSettings: () => void;
+  renderInput?: ReactNode;
+};
+
+const getGreeting = (firstName: string | null) => {
+  const hour = new Date().getHours();
+  const timeGreeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  const greetingsWithName = [
+    `${timeGreeting}, ${firstName}`,
+    `${timeGreeting}, ${firstName}`,
+    `Hey, ${firstName}. Ready to dive in?`,
+    "What can I help you find today?",
+    "How can I help you today?",
+    "What would you like to explore?",
+  ];
+
+  const greetingsWithoutName = [
+    timeGreeting,
+    timeGreeting,
+    "Ready to dive in?",
+    "What can I help you find today?",
+    "How can I help you today?",
+    "What would you like to explore?",
+  ];
+
+  const greetings = firstName ? greetingsWithName : greetingsWithoutName;
+  return greetings[Math.floor(Math.random() * greetings.length)];
 };
 
 export function MessageList({
   messages,
   hasIndexedFiles,
   onOpenSettings,
+  renderInput,
 }: MessageListProps) {
+  const { user } = useUser();
+  const firstName = user?.firstName || null;
+  const greetingRef = useRef<string | null>(null);
+
+  if (greetingRef.current === null && firstName !== null) {
+    greetingRef.current = getGreeting(firstName);
+  } else if (greetingRef.current === null) {
+    greetingRef.current = getGreeting(null);
+  }
+
+  const greeting = greetingRef.current;
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef<number>(0);
 
@@ -58,16 +99,11 @@ export function MessageList({
     }
 
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <Search className="w-6 h-6 text-gray-400" />
-          </div>
-          <p className="text-lg font-medium text-gray-700">
-            Welcome to FinderAI
-          </p>
-          <p className="text-sm mt-1">Ask questions about your indexed files</p>
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">{greeting}</h1>
         </div>
+        <div className="w-full max-w-2xl">{renderInput}</div>
       </div>
     );
   }
