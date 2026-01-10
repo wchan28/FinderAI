@@ -18,10 +18,25 @@ exports.default = async function notarizing(context) {
 
   console.log(`Notarizing ${appPath}...`);
 
-  await notarize({
-    appPath,
-    keychainProfile: 'FinderAI-notarize',
-  });
+  const appleId = process.env.APPLE_ID;
+  const appleIdPassword = process.env.APPLE_APP_SPECIFIC_PASSWORD;
+  const teamId = process.env.APPLE_TEAM_ID;
+
+  if (appleId && appleIdPassword && teamId) {
+    console.log('Using Apple ID credentials from environment variables');
+    await notarize({
+      appPath,
+      appleId,
+      appleIdPassword,
+      teamId,
+    });
+  } else {
+    console.log('Using keychain profile for notarization');
+    await notarize({
+      appPath,
+      keychainProfile: 'FinderAI-notarize',
+    });
+  }
 
   console.log('Notarization complete!');
 };

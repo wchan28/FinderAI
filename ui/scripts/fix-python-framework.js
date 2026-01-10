@@ -8,19 +8,23 @@ exports.default = async function fixPythonFramework(context) {
   }
 
   const appName = context.packager.appInfo.productFilename;
-  const frameworkPath = path.join(
+  const basePath = path.join(
     appOutDir,
     `${appName}.app`,
     'Contents',
     'Resources',
     'python-backend',
-    '_internal',
-    'Python3.framework'
+    '_internal'
   );
 
-  if (fs.existsSync(frameworkPath)) {
-    console.log(`Removing problematic Python3.framework at ${frameworkPath}...`);
-    fs.rmSync(frameworkPath, { recursive: true, force: true });
-    console.log('Python3.framework removed successfully.');
+  const frameworkNames = ['Python.framework', 'Python3.framework'];
+
+  for (const frameworkName of frameworkNames) {
+    const frameworkPath = path.join(basePath, frameworkName);
+    if (fs.existsSync(frameworkPath)) {
+      console.log(`Removing problematic ${frameworkName} at ${frameworkPath}...`);
+      fs.rmSync(frameworkPath, { recursive: true, force: true });
+      console.log(`${frameworkName} removed successfully.`);
+    }
   }
 };
