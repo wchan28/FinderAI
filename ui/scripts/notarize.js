@@ -8,6 +8,11 @@ exports.default = async function notarizing(context) {
     return;
   }
 
+  if (process.env.CI === 'true') {
+    console.log('Skipping notarization in CI - notarize locally before release');
+    return;
+  }
+
   if (process.env.CSC_IDENTITY_AUTO_DISCOVERY === 'false') {
     console.log('Skipping notarization - code signing is disabled');
     return;
