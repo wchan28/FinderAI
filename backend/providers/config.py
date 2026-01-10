@@ -202,7 +202,8 @@ def _get_api_key(provider: str) -> Optional[str]:
     In proxy mode, returns a placeholder since actual keys are on Supabase.
     """
     # In proxy mode, we don't need local API keys - they're on Supabase
-    if is_proxy_mode_enabled() and provider in {"openai", "cohere", "voyage"}:
+    # Note: voyage is NOT included - each user must provide their own Voyage API key
+    if is_proxy_mode_enabled() and provider in {"openai", "cohere"}:
         return "PROXY_MODE"
 
     env_var = f"{provider.upper()}_API_KEY"
