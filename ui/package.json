@@ -71,7 +71,8 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "entitlements.mac.plist",
-      "entitlementsInherit": "entitlements.mac.plist"
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": false
     },
     "afterPack": "scripts/fix-python-framework.js",
     "afterSign": "scripts/notarize.js",
