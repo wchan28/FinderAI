@@ -20,6 +20,12 @@ interface ElectronAPI {
     callback: (jobInfo: IncompleteJobInfo) => void,
   ) => () => void;
   onAuthCallback: (callback: (url: string) => void) => () => void;
+  getUpdateStatus: () => Promise<{
+    updateReady: boolean;
+    version: string | null;
+  }>;
+  restartToUpdate: () => Promise<void>;
+  onUpdateReady: (callback: (version: string) => void) => () => void;
 }
 
 interface Window {

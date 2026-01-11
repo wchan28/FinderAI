@@ -16,4 +16,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("auth-callback", (_, url) => callback(url));
     return () => ipcRenderer.removeAllListeners("auth-callback");
   },
+  getUpdateStatus: () => ipcRenderer.invoke("get-update-status"),
+  restartToUpdate: () => ipcRenderer.invoke("restart-to-update"),
+  onUpdateReady: (callback: (version: string) => void) => {
+    ipcRenderer.on("update-ready", (_, version) => callback(version));
+    return () => ipcRenderer.removeAllListeners("update-ready");
+  },
 });
