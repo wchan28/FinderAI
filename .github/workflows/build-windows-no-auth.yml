@@ -36,7 +36,7 @@ jobs:
         run: cd ui && npm ci
 
       - name: Build Electron app (NO AUTH)
-        run: cd ui && npm run build
+        run: cd ui && npx tsc -p electron/tsconfig.json && npx vite build && npx electron-builder --publish never
         env:
           # NOTE: VITE_CLERK_PUBLISHABLE_KEY intentionally omitted to bypass auth
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
