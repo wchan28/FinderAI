@@ -12,6 +12,7 @@ import http from "http";
 import fs, { createReadStream, statSync } from "fs";
 import { spawn, ChildProcess, execSync } from "child_process";
 import { lookup as mimeLookup } from "mime-types";
+import { setupAutoUpdater, registerAutoUpdateIPC } from "./auto-updater";
 
 let isQuitting = false;
 let sleepBlockerId: number | null = null;
@@ -167,7 +168,15 @@ function findPythonPath(): string {
   }
 
   // In dev mode, prefer virtual environment with Python 3.12+ and all dependencies
-  const backendVenvPath = path.join(__dirname, "..", "..", "backend", "venv312", "bin", "python");
+  const backendVenvPath = path.join(
+    __dirname,
+    "..",
+    "..",
+    "backend",
+    "venv312",
+    "bin",
+    "python",
+  );
   if (fs.existsSync(backendVenvPath)) {
     console.log(`Using Python from venv: ${backendVenvPath}`);
     return backendVenvPath;
@@ -578,6 +587,11 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+
+  if (app.isPackaged) {
+    registerAutoUpdateIPC();
+    setupAutoUpdater(mainWindow!);
+  }
 
   // Check for protocol URL passed as argument (Windows/Linux cold start)
   const protocolUrl = process.argv.find((arg) =>
