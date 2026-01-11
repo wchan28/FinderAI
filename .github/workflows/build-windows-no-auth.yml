@@ -1,0 +1,53 @@
+name: Build Windows (No Auth - Friend Build)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          .\build_venv\Scripts\Activate.ps1
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          New-Item -ItemType Directory -Force -Path ..\ui\python-dist\win
+          Copy-Item -Recurse dist\finderai-server\* ..\ui\python-dist\win\
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Build Electron app (NO AUTH)
+        run: cd ui && npm run build
+        env:
+          # NOTE: VITE_CLERK_PUBLISHABLE_KEY intentionally omitted to bypass auth
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinderAI-Windows-NoAuth
+          path: |
+            ui/release/*.exe
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
