@@ -57,7 +57,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FinderAI-mac-arm64
-          path: ui/release/*.zip
+          path: |
+            ui/release/*.zip
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
 
   build-mac-x64:
     runs-on: macos-15-intel
@@ -103,7 +107,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FinderAI-mac-x64
-          path: ui/release/*.zip
+          path: |
+            ui/release/*.zip
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
 
   build-windows:
     runs-on: windows-latest
@@ -147,7 +155,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FinderAI-windows
-          path: ui/release/*.exe
+          path: |
+            ui/release/*.exe
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
 
   create-release:
     needs: [build-mac-arm64, build-mac-x64, build-windows]

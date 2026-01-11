@@ -3,6 +3,7 @@ import { SquarePen, Search } from "lucide-react";
 import { ConversationList } from "./ConversationList";
 import { UserProfileMenu } from "./UserProfileMenu";
 import { SearchModal } from "../Search/SearchModal";
+import { UpdateIndicator } from "../UpdateIndicator";
 import type { Conversation, ConversationId } from "../../types/chat";
 
 export function filterConversations(
@@ -91,6 +92,7 @@ export function ChatSidebar({
       </div>
 
       <div className="border-t border-gray-200 px-2 py-2">
+        <UpdateIndicator />
         <UserProfileMenu onOpenSettings={onOpenSettings} />
       </div>
     </div>
