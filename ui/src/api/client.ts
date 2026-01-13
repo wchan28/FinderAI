@@ -77,6 +77,11 @@ export async function getAvailableModels(): Promise<ModelInfo[]> {
   return data.models;
 }
 
+export type ConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export interface ChatStreamCallbacks {
   onChunk: (chunk: string) => void;
   onSources: (sources: Source[]) => void;
@@ -89,8 +94,11 @@ export async function streamChat(
   callbacks: ChatStreamCallbacks,
   abortSignal?: AbortSignal,
   clerkToken?: string,
+  conversationHistory?: ConversationMessage[],
 ): Promise<void> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (clerkToken) {
     headers["x-clerk-auth-token"] = clerkToken;
   }
@@ -98,7 +106,10 @@ export async function streamChat(
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      conversation_history: conversationHistory ?? [],
+    }),
     signal: abortSignal,
   });
 
@@ -160,7 +171,9 @@ export async function streamIndex(
   callbacks: IndexStreamCallbacks,
   clerkToken?: string,
 ): Promise<void> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (clerkToken) {
     headers["x-clerk-auth-token"] = clerkToken;
   }
@@ -184,7 +197,9 @@ export async function streamReindex(
   callbacks: IndexStreamCallbacks,
   clerkToken?: string,
 ): Promise<void> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (clerkToken) {
     headers["x-clerk-auth-token"] = clerkToken;
   }
@@ -208,7 +223,9 @@ export async function streamIndexSkipped(
   callbacks: IndexStreamCallbacks,
   clerkToken?: string,
 ): Promise<void> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (clerkToken) {
     headers["x-clerk-auth-token"] = clerkToken;
   }
@@ -410,7 +427,9 @@ export async function streamResume(
   callbacks: ResumeStreamCallbacks,
   clerkToken?: string,
 ): Promise<void> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (clerkToken) {
     headers["x-clerk-auth-token"] = clerkToken;
   }

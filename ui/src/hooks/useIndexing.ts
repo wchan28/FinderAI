@@ -15,9 +15,11 @@ import {
   IndexStats,
   JobInfo,
 } from "../api/client";
+import { CLERK_ENABLED } from "../lib/clerk";
 
-export function useIndexing() {
-  const { getToken } = useAuth();
+function useIndexingInternal(
+  getToken: () => Promise<string | null>,
+) {
   const [isIndexing, setIsIndexing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -308,3 +310,17 @@ export function useIndexing() {
     refreshStatus,
   };
 }
+
+function useIndexingWithClerk() {
+  const { getToken } = useAuth();
+  return useIndexingInternal(getToken);
+}
+
+function useIndexingWithoutClerk() {
+  const getToken = useCallback(async () => null, []);
+  return useIndexingInternal(getToken);
+}
+
+export const useIndexing = CLERK_ENABLED
+  ? useIndexingWithClerk
+  : useIndexingWithoutClerk;

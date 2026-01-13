@@ -1,7 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { streamChat, Source } from "../api/client";
+import type { ConversationMessage } from "../api/client";
 import type { ThinkingStatus } from "../components/Chat/ThinkingIndicator";
+import { CLERK_ENABLED } from "../lib/clerk";
 
 export interface Message {
   id: string;
@@ -18,9 +20,11 @@ type UseChatOptions = {
   onMessagesChange?: (messages: Message[]) => void;
 };
 
-export function useChat(options: UseChatOptions = {}) {
+function useChatInternal(
+  options: UseChatOptions,
+  getToken: () => Promise<string | null>,
+) {
   const { conversationId, initialMessages, onMessagesChange } = options;
-  const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const onMessagesChangeRef = useRef(onMessagesChange);
@@ -74,7 +78,7 @@ export function useChat(options: UseChatOptions = {}) {
   }, [setMessagesWithCallback]);
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, conversationHistory?: ConversationMessage[]) => {
       const userMessage: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -164,6 +168,7 @@ export function useChat(options: UseChatOptions = {}) {
           },
           controller.signal,
           clerkToken ?? undefined,
+          conversationHistory,
         );
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -198,3 +203,15 @@ export function useChat(options: UseChatOptions = {}) {
     clearMessages,
   };
 }
+
+function useChatWithClerk(options: UseChatOptions = {}) {
+  const { getToken } = useAuth();
+  return useChatInternal(options, getToken);
+}
+
+function useChatWithoutClerk(options: UseChatOptions = {}) {
+  const getToken = useCallback(async () => null, []);
+  return useChatInternal(options, getToken);
+}
+
+export const useChat = CLERK_ENABLED ? useChatWithClerk : useChatWithoutClerk;
