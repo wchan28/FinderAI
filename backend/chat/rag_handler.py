@@ -73,6 +73,20 @@ def get_provider(model: Optional[str] = None) -> BaseLLMProvider:
     return get_llm_provider(config, model=model)
 
 
+def _build_messages_with_history(
+    system_prompt: str,
+    user_prompt: str,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
+) -> List[Message]:
+    """Build the messages array for the LLM with conversation history."""
+    messages = [Message(role="system", content=system_prompt)]
+    if conversation_history:
+        for msg in conversation_history:
+            messages.append(Message(role=msg["role"], content=msg["content"]))
+    messages.append(Message(role="user", content=user_prompt))
+    return messages
+
+
 def _format_file_listing_response(file_matches: List[Dict], query: str, by_content: bool = False) -> str:
     """Format a clean response for file listing queries."""
     if not file_matches:
@@ -113,7 +127,8 @@ def get_answer(
     vector_store: Optional[VectorStore] = None,
     n_context_results: int = 5,
     stream: bool = False,
-    model: Optional[str] = None
+    model: Optional[str] = None,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
 ) -> str | Generator[str, None, None]:
     """
     Get an answer to a query using RAG.
@@ -124,6 +139,7 @@ def get_answer(
         n_context_results: Number of context chunks to retrieve
         stream: If True, return a generator that yields response chunks
         model: Optional model name to override config
+        conversation_history: Optional list of prior messages for multi-turn context
 
     Returns:
         The LLM's response (or generator if streaming)
@@ -158,10 +174,9 @@ def get_answer(
 
     provider = get_provider(model)
 
-    messages = [
-        Message(role="system", content=RAG_SYSTEM_PROMPT),
-        Message(role="user", content=user_prompt),
-    ]
+    messages = _build_messages_with_history(
+        RAG_SYSTEM_PROMPT, user_prompt, conversation_history
+    )
 
     return provider.generate(messages, stream=stream)
 
@@ -171,7 +186,8 @@ def get_answer_with_sources(
     vector_store: Optional[VectorStore] = None,
     n_context_results: int = 5,
     stream: bool = False,
-    model: Optional[str] = None
+    model: Optional[str] = None,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
 ) -> Tuple[Union[str, Generator[str, None, None]], List[Dict]]:
     """
     Get an answer to a query using RAG, along with the sources used.
@@ -184,6 +200,7 @@ def get_answer_with_sources(
         n_context_results: Number of context chunks to retrieve
         stream: If True, return a generator that yields response chunks
         model: Optional model name to override config
+        conversation_history: Optional list of prior messages for multi-turn context
 
     Returns:
         Tuple of (LLM response or generator, list of source dicts)
@@ -246,10 +263,9 @@ def get_answer_with_sources(
 
     provider = get_provider(model)
 
-    messages = [
-        Message(role="system", content=RAG_SYSTEM_PROMPT),
-        Message(role="user", content=user_prompt),
-    ]
+    messages = _build_messages_with_history(
+        RAG_SYSTEM_PROMPT, user_prompt, conversation_history
+    )
 
     return provider.generate(messages, stream=stream), sources
 

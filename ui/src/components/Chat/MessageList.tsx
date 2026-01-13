@@ -3,6 +3,7 @@ import { useUser } from "@clerk/clerk-react";
 import { MessageBubble } from "./MessageBubble";
 import { FolderOpen, Settings } from "lucide-react";
 import type { Message } from "../../hooks/useChat";
+import { CLERK_ENABLED } from "../../lib/clerk";
 
 type MessageListProps = {
   messages: Message[];
@@ -38,14 +39,26 @@ const getGreeting = (firstName: string | null) => {
   return greetings[Math.floor(Math.random() * greetings.length)];
 };
 
+function useFirstNameWithClerk(): string | null {
+  const { user } = useUser();
+  return user?.firstName || null;
+}
+
+function useFirstNameWithoutClerk(): string | null {
+  return null;
+}
+
+const useFirstName = CLERK_ENABLED
+  ? useFirstNameWithClerk
+  : useFirstNameWithoutClerk;
+
 export function MessageList({
   messages,
   hasIndexedFiles,
   onOpenSettings,
   renderInput,
 }: MessageListProps) {
-  const { user } = useUser();
-  const firstName = user?.firstName || null;
+  const firstName = useFirstName();
   const greetingRef = useRef<string | null>(null);
 
   if (greetingRef.current === null && firstName !== null) {

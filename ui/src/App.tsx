@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import type { ReactNode } from "react";
 import { ChatContainer } from "./components/Chat/ChatContainer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { SetupWizard } from "./components/Onboarding/SetupWizard";
@@ -6,11 +7,19 @@ import { ChatSidebar } from "./components/Sidebar/ChatSidebar";
 import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
 import { AuthGate } from "./components/Auth/AuthGate";
 import { checkHealth, getStatus } from "./api/client";
-import type { StatusResponse } from "./api/client";
+import type { StatusResponse, ConversationMessage } from "./api/client";
 import { useChat } from "./hooks/useChat";
 import type { Message } from "./hooks/useChat";
 import { useChatHistory } from "./hooks/useChatHistory";
+import { CLERK_ENABLED } from "./lib/clerk";
 import { AlertCircle, Loader2 } from "lucide-react";
+
+function MaybeAuthGate({ children }: { children: ReactNode }) {
+  if (!CLERK_ENABLED) {
+    return <>{children}</>;
+  }
+  return <AuthGate>{children}</AuthGate>;
+}
 
 const SETUP_COMPLETE_KEY = "finderai_setup_complete";
 const SIDEBAR_OPEN_KEY = "finderai_sidebar_state";
@@ -66,9 +75,13 @@ function App() {
         const newId = createConversation();
         activeConversationIdRef.current = newId;
       }
-      await sendMessage(content);
+      const history: ConversationMessage[] = messages
+        .filter((m) => !m.isStreaming)
+        .map((m) => ({ role: m.role, content: m.content }))
+        .slice(-10);
+      await sendMessage(content, history);
     },
-    [createConversation, sendMessage],
+    [createConversation, sendMessage, messages],
   );
 
   const handleNewChat = useCallback(() => {
@@ -170,22 +183,27 @@ function App() {
 
   if (showSetupWizard) {
     return (
-      <AuthGate>
+      <MaybeAuthGate>
         <div className="h-full relative">
           <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50" />
           <SetupWizard onComplete={handleSetupComplete} />
         </div>
-      </AuthGate>
+      </MaybeAuthGate>
     );
   }
 
   return (
-    <AuthGate>
+    <MaybeAuthGate>
       <div className="h-full flex flex-col bg-white relative">
         <div className="drag-region absolute top-0 left-0 right-0 h-12 z-50 flex">
-          <div className={`h-full transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64 bg-gray-50 border-r border-gray-200" : "w-0 bg-transparent"}`} />
+          <div
+            className={`h-full transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64 bg-gray-50 border-r border-gray-200" : "w-0 bg-transparent"}`}
+          />
           <div className="absolute left-[78px] top-1/2 -translate-y-1/2">
-            <SidebarToggle onClick={handleToggleSidebar} isOpen={isSidebarOpen} />
+            <SidebarToggle
+              onClick={handleToggleSidebar}
+              isOpen={isSidebarOpen}
+            />
           </div>
           <div className="flex-1" />
         </div>
@@ -246,7 +264,7 @@ function App() {
           onRunSetup={handleRunSetup}
         />
       </div>
-    </AuthGate>
+    </MaybeAuthGate>
   );
 }
 

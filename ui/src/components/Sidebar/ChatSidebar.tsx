@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { SquarePen, Search } from "lucide-react";
+import { SquarePen, Search, Settings } from "lucide-react";
 import { ConversationList } from "./ConversationList";
 import { UserProfileMenu } from "./UserProfileMenu";
 import { SearchModal } from "../Search/SearchModal";
 import { UpdateIndicator } from "../UpdateIndicator";
+import { CLERK_ENABLED } from "../../lib/clerk";
 import type { Conversation, ConversationId } from "../../types/chat";
 
 export function filterConversations(
@@ -93,7 +94,19 @@ export function ChatSidebar({
 
       <div className="border-t border-gray-200 px-2 py-2">
         <UpdateIndicator />
-        <UserProfileMenu onOpenSettings={onOpenSettings} />
+        {CLERK_ENABLED ? (
+          <UserProfileMenu onOpenSettings={onOpenSettings} />
+        ) : (
+          <button
+            onClick={onOpenSettings}
+            className="no-drag flex items-center gap-3 w-full px-3 py-3 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
+              <Settings className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-sm text-gray-900">Settings</span>
+          </button>
+        )}
       </div>
     </div>
   );

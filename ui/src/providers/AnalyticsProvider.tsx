@@ -8,6 +8,7 @@ import {
 import type { ReactNode } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { supabase, isAnalyticsEnabled } from "../lib/supabase";
+import { CLERK_ENABLED } from "../lib/clerk";
 
 type EventType = "auth" | "voyage" | "embedding";
 
@@ -27,7 +28,7 @@ const AnalyticsContext = createContext<AnalyticsContextType>({
   userId: null,
 });
 
-export function AnalyticsProvider({ children }: { children: ReactNode }) {
+function AnalyticsProviderWithClerk({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
   const hasTrackedSignup = useRef(false);
 
@@ -82,6 +83,20 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     </AnalyticsContext.Provider>
   );
 }
+
+function AnalyticsProviderWithoutClerk({ children }: { children: ReactNode }) {
+  const trackEvent = useCallback(() => {}, []);
+
+  return (
+    <AnalyticsContext.Provider value={{ trackEvent, userId: null }}>
+      {children}
+    </AnalyticsContext.Provider>
+  );
+}
+
+export const AnalyticsProvider = CLERK_ENABLED
+  ? AnalyticsProviderWithClerk
+  : AnalyticsProviderWithoutClerk;
 
 export function useAnalytics() {
   return useContext(AnalyticsContext);
