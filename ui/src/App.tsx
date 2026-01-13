@@ -25,6 +25,7 @@ const SETUP_COMPLETE_KEY = "finderai_setup_complete";
 const SIDEBAR_OPEN_KEY = "finderai_sidebar_state";
 
 function App() {
+  const [platform, setPlatform] = useState<string>("darwin");
   const [backendStatus, setBackendStatus] = useState<
     "loading" | "ready" | "error"
   >("loading");
@@ -109,6 +110,11 @@ function App() {
     } catch {
       // Ignore - status won't update
     }
+  }, []);
+
+  useEffect(() => {
+    const p = window.electronAPI?.getPlatform();
+    if (p) setPlatform(p);
   }, []);
 
   useEffect(() => {
@@ -199,7 +205,9 @@ function App() {
           <div
             className={`h-full transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64 bg-gray-50 border-r border-gray-200" : "w-0 bg-transparent"}`}
           />
-          <div className="absolute left-[78px] top-1/2 -translate-y-1/2">
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 ${platform === "darwin" ? "left-[78px]" : "left-3"}`}
+          >
             <SidebarToggle
               onClick={handleToggleSidebar}
               isOpen={isSidebarOpen}

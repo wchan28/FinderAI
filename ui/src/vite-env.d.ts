@@ -26,6 +26,7 @@ interface ElectronAPI {
   }>;
   restartToUpdate: () => Promise<void>;
   onUpdateReady: (callback: (version: string) => void) => () => void;
+  getPlatform: () => string;
 }
 
 interface Window {

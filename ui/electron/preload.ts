@@ -22,4 +22,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("update-ready", (_, version) => callback(version));
     return () => ipcRenderer.removeAllListeners("update-ready");
   },
+  getPlatform: () => process.platform,
 });
