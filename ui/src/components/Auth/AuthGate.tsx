@@ -1,7 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
-import type { SignInResource } from "@clerk/shared/types";
-import { SignedIn, SignedOut, useSignIn, useClerk } from "@clerk/clerk-react";
+import type { SignInResource, SignUpResource } from "@clerk/shared/types";
+import {
+  SignedIn,
+  SignedOut,
+  useSignIn,
+  useSignUp,
+  useClerk,
+} from "@clerk/clerk-react";
 import { Search, Loader2, Mail, ArrowLeft } from "lucide-react";
 
 type AuthGateProps = {
@@ -9,15 +15,19 @@ type AuthGateProps = {
 };
 
 type AuthView = "main" | "email" | "code";
+type AuthMode = "signin" | "signup";
 
 export function AuthGate({ children }: AuthGateProps) {
   const { signIn, isLoaded: signInLoaded } = useSignIn();
+  const { signUp, isLoaded: signUpLoaded } = useSignUp();
   const clerk = useClerk();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendingSignInRef = useRef<SignInResource | null>(null);
+  const pendingSignUpRef = useRef<SignUpResource | null>(null);
 
   const [authView, setAuthView] = useState<AuthView>("main");
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
 
@@ -142,14 +152,17 @@ export function AuthGate({ children }: AuthGateProps) {
   };
 
   const signInWithEmail = async () => {
-    if (!signIn || !signInLoaded || !email.trim()) return;
+    if (!signIn || !signInLoaded || !signUp || !signUpLoaded || !email.trim())
+      return;
 
     setIsSigningIn(true);
     setError(null);
 
+    const trimmedEmail = email.trim();
+
     try {
       const result = await signIn.create({
-        identifier: email.trim(),
+        identifier: trimmedEmail,
       });
 
       pendingSignInRef.current = result;
@@ -163,37 +176,88 @@ export function AuthGate({ children }: AuthGateProps) {
           strategy: "email_code",
           emailAddressId: emailCodeFactor.emailAddressId,
         });
+        setAuthMode("signin");
         setAuthView("code");
       } else {
         throw new Error("Email verification not available");
       }
     } catch (err) {
-      console.error("Email sign in error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to send verification code",
+      const clerkError = err as { errors?: Array<{ code: string }> };
+      const isUserNotFound = clerkError.errors?.some(
+        (e) =>
+          e.code === "form_identifier_not_found" ||
+          e.code === "identifier_not_found",
       );
+
+      if (isUserNotFound) {
+        try {
+          const signUpResult = await signUp.create({
+            emailAddress: trimmedEmail,
+          });
+
+          pendingSignUpRef.current = signUpResult;
+
+          await signUp.prepareEmailAddressVerification({
+            strategy: "email_code",
+          });
+
+          setAuthMode("signup");
+          setAuthView("code");
+        } catch (signUpErr) {
+          console.error("Email sign up error:", signUpErr);
+          setError(
+            signUpErr instanceof Error
+              ? signUpErr.message
+              : "Failed to create account",
+          );
+        }
+      } else {
+        console.error("Email sign in error:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to send verification code",
+        );
+      }
     } finally {
       setIsSigningIn(false);
     }
   };
 
   const verifyCode = async () => {
-    if (!signIn || !code.trim()) return;
+    if (!code.trim()) return;
 
     setIsSigningIn(true);
     setError(null);
 
     try {
-      const result = await signIn.attemptFirstFactor({
-        strategy: "email_code",
-        code: code.trim(),
-      });
+      if (authMode === "signup") {
+        if (!signUp) return;
 
-      if (result.status === "complete" && result.createdSessionId) {
-        await clerk.setActive({ session: result.createdSessionId });
-        pendingSignInRef.current = null;
+        const result = await signUp.attemptEmailAddressVerification({
+          code: code.trim(),
+        });
+
+        if (result.status === "complete" && result.createdSessionId) {
+          await clerk.setActive({ session: result.createdSessionId });
+          pendingSignUpRef.current = null;
+        } else {
+          throw new Error("Verification incomplete");
+        }
       } else {
-        throw new Error("Verification incomplete");
+        if (!signIn) return;
+
+        const result = await signIn.attemptFirstFactor({
+          strategy: "email_code",
+          code: code.trim(),
+        });
+
+        if (result.status === "complete" && result.createdSessionId) {
+          await clerk.setActive({ session: result.createdSessionId });
+          pendingSignInRef.current = null;
+        } else {
+          throw new Error("Verification incomplete");
+        }
       }
     } catch (err) {
       console.error("Code verification error:", err);
@@ -207,6 +271,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const resetAuthView = () => {
     setAuthView("main");
+    setAuthMode("signin");
     setEmail("");
     setCode("");
     setError(null);
@@ -277,7 +342,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
                     <button
                       onClick={() => setAuthView("email")}
-                      disabled={isSigningIn || !signInLoaded}
+                      disabled={isSigningIn || !signInLoaded || !signUpLoaded}
                       className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <Mail className="w-5 h-5 text-gray-500" />
@@ -313,7 +378,12 @@ export function AuthGate({ children }: AuthGateProps) {
 
                     <button
                       onClick={signInWithEmail}
-                      disabled={isSigningIn || !signInLoaded || !email.trim()}
+                      disabled={
+                        isSigningIn ||
+                        !signInLoaded ||
+                        !signUpLoaded ||
+                        !email.trim()
+                      }
                       className="w-full mt-4 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                     >
                       {isSigningIn ? (
