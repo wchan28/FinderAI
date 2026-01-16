@@ -1,0 +1,112 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag for the release (e.g., v1.2.3)'
+        required: true
+        type: string
+      build_run_id:
+        description: 'Run ID of the Build workflow to get Windows artifact from (leave empty to upload all manually)'
+        required: false
+        type: string
+      draft:
+        description: 'Create as draft release'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Download Windows artifact from build workflow
+        if: ${{ inputs.build_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: FinderAI-windows
+          path: ./release
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download notarized macOS ARM64 artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: FinderAI-mac-arm64-notarized
+          path: ./release
+
+      - name: Download notarized macOS x64 artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: FinderAI-mac-x64-notarized
+          path: ./release
+
+      - name: List release files
+        run: |
+          echo "Release files:"
+          ls -la ./release || echo "No files in release directory yet"
+
+      - name: Check for required files
+        run: |
+          echo "## Release Files Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if ls ./release/*.exe 1> /dev/null 2>&1; then
+            echo "✅ Windows executable found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No Windows executable found - upload manually or provide build_run_id" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if ls ./release/*arm64*.zip 1> /dev/null 2>&1; then
+            echo "✅ macOS ARM64 build found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No macOS ARM64 build found - upload the notarized zip as artifact named 'FinderAI-mac-arm64-notarized'" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if ls ./release/*x64*.zip 1> /dev/null 2>&1 || ls ./release/*-mac.zip 1> /dev/null 2>&1; then
+            echo "✅ macOS x64 build found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No macOS x64 build found - upload the notarized zip as artifact named 'FinderAI-mac-x64-notarized'" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f ${{ inputs.version_tag }}
+          git push -f origin ${{ inputs.version_tag }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version_tag }}
+          files: release/*
+          generate_release_notes: true
+          draft: ${{ inputs.draft }}
+          name: FinderAI ${{ inputs.version_tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Release Created! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ inputs.version_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Draft:** ${{ inputs.draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.draft }}" = "true" ]; then
+            echo "ℹ️ This is a draft release. Go to GitHub Releases to publish it when ready." >> $GITHUB_STEP_SUMMARY
+          fi
