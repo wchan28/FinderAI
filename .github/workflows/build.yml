@@ -1,0 +1,219 @@
+name: Build All Platforms
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag (e.g., v1.2.3) - used for artifact naming'
+        required: false
+        default: 'dev'
+        type: string
+
+jobs:
+  build-mac-arm64:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          source build_venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          mkdir -p ../ui/python-dist/mac
+          cp -r dist/finderai-server/* ../ui/python-dist/mac/
+          deactivate
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Import Code Signing Certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          echo $CSC_LINK | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Build and Sign Electron app
+        run: cd ui && npm run build -- --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload Mac ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinderAI-mac-arm64
+          path: |
+            ui/release/*.zip
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
+
+  build-mac-x64:
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          source build_venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          mkdir -p ../ui/python-dist/mac
+          cp -r dist/finderai-server/* ../ui/python-dist/mac/
+          deactivate
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Import Code Signing Certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          echo $CSC_LINK | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Build and Sign Electron app
+        run: cd ui && npm run build -- --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload Mac x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinderAI-mac-x64
+          path: |
+            ui/release/*.zip
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          .\build_venv\Scripts\Activate.ps1
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          New-Item -ItemType Directory -Force -Path ..\ui\python-dist\win
+          Copy-Item -Recurse dist\finderai-server\* ..\ui\python-dist\win\
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Build Electron app
+        run: cd ui && npm run build -- --publish never
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinderAI-windows
+          path: |
+            ui/release/*.exe
+            ui/release/*.yml
+            ui/release/*.yaml
+            ui/release/*.blockmap
+
+  summary:
+    needs: [build-mac-arm64, build-mac-x64, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Build Complete! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All platform builds are ready as workflow artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps for macOS Notarization:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the \`FinderAI-mac-arm64\` and \`FinderAI-mac-x64\` artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "2. Unzip and notarize each .zip file locally:" >> $GITHUB_STEP_SUMMARY
+          echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "   # Unzip the app" >> $GITHUB_STEP_SUMMARY
+          echo "   unzip FinderAI-*.zip -d temp_app" >> $GITHUB_STEP_SUMMARY
+          echo "   " >> $GITHUB_STEP_SUMMARY
+          echo "   # Notarize (this submits to Apple and waits)" >> $GITHUB_STEP_SUMMARY
+          echo "   xcrun notarytool submit FinderAI-*.zip --keychain-profile \"FinderAI-notarize\" --wait" >> $GITHUB_STEP_SUMMARY
+          echo "   " >> $GITHUB_STEP_SUMMARY
+          echo "   # Staple the notarization ticket to the app" >> $GITHUB_STEP_SUMMARY
+          echo "   xcrun stapler staple temp_app/FinderAI.app" >> $GITHUB_STEP_SUMMARY
+          echo "   " >> $GITHUB_STEP_SUMMARY
+          echo "   # Re-zip the stapled app (use ditto to preserve attributes)" >> $GITHUB_STEP_SUMMARY
+          echo "   ditto -c -k --keepParent temp_app/FinderAI.app FinderAI-notarized.zip" >> $GITHUB_STEP_SUMMARY
+          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Run the **Publish Release** workflow and upload your notarized .zip files" >> $GITHUB_STEP_SUMMARY

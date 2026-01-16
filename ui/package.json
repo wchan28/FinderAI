@@ -1,6 +1,6 @@
 {
   "name": "finderai",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Search your local files with natural language",
   "main": "dist-electron/main.js",
   "scripts": {
