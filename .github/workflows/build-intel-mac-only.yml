@@ -50,7 +50,7 @@ jobs:
           rm certificate.p12
 
       - name: Build, Sign, and Notarize Electron app
-        run: cd ui && npm run build
+        run: cd ui && npm run build -- --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

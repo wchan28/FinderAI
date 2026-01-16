@@ -46,7 +46,7 @@ jobs:
         run: cd ui && npm ci
 
       - name: Build Electron app
-        run: cd ui && npm run build
+        run: cd ui && npm run build -- --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
@@ -96,7 +96,7 @@ jobs:
         run: cd ui && npm ci
 
       - name: Build Electron app
-        run: cd ui && npm run build
+        run: cd ui && npm run build -- --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
