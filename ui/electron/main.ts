@@ -632,6 +632,11 @@ app.on("window-all-closed", async () => {
 });
 
 app.on("before-quit", async (event) => {
+  // Let quitAndInstall proceed without interference for auto-updates
+  if ((global as any).isQuittingForUpdate) {
+    return;
+  }
+
   if (!isQuitting) {
     event.preventDefault();
     await gracefulShutdown();

@@ -36,6 +36,8 @@ export function registerAutoUpdateIPC(): void {
   }));
 
   ipcMain.handle("restart-to-update", () => {
+    // Set flag so before-quit handler doesn't block the update
+    (global as any).isQuittingForUpdate = true;
     autoUpdater.quitAndInstall(false, true);
   });
 }
