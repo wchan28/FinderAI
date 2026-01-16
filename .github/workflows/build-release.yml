@@ -145,7 +145,7 @@ jobs:
         run: cd ui && npm ci
 
       - name: Build Electron app
-        run: cd ui && npm run build
+        run: cd ui && npm run build -- --publish never
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
