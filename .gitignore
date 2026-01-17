@@ -1,13 +1,16 @@
 # Python
 venv/
+**/venv*/
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 build/
+**/build/
 develop-eggs/
 dist/
+**/dist/
 downloads/
 eggs/
 .eggs/
@@ -21,6 +24,10 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+
+# Python bundled for Electron
+ui/python-dist/
 
 # Data files (generated)
 data/
@@ -58,3 +65,12 @@ node_modules/
 ui/dist/
 ui/dist-electron/
 ui/release/
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Temporary context files
+*CONTEXT*.md
+!README.md
