@@ -74,7 +74,7 @@ function getSkipCategories(skippedByReason: SkippedByReason): SkipCategory[] {
   if (skippedByReason.file_too_large.length > 0) {
     categories.push({
       key: "file_too_large",
-      label: "files too large (>50MB)",
+      label: "files too large",
       files: skippedByReason.file_too_large,
     });
   }
@@ -97,6 +97,7 @@ export function SettingsPanel({
   const [activeTab, setActiveTab] = useState<Tab>("indexing");
   const [folder, setFolder] = useState("");
   const [maxChunks, setMaxChunks] = useState(50);
+  const [maxFileSizeMb, setMaxFileSizeMb] = useState(50);
   const [showSkippedDetails, setShowSkippedDetails] = useState(false);
   const [voyageKey, setVoyageKey] = useState("");
   const [hasVoyageKey, setHasVoyageKey] = useState(false);
@@ -186,7 +187,7 @@ export function SettingsPanel({
 
   const handleIndex = () => {
     if (folder) {
-      startIndexing(folder, maxChunks);
+      startIndexing(folder, maxChunks, maxFileSizeMb);
     }
   };
 
@@ -195,7 +196,7 @@ export function SettingsPanel({
   };
 
   const handleIndexSkipped = () => {
-    indexSkippedFiles(maxChunks);
+    indexSkippedFiles(maxChunks, maxFileSizeMb);
   };
 
   const handleResume = () => {
@@ -345,6 +346,27 @@ export function SettingsPanel({
               </p>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Max File Size: {maxFileSizeMb}MB
+              </label>
+              <input
+                type="range"
+                min="50"
+                max="1000"
+                step="10"
+                value={maxFileSizeMb}
+                onChange={(e) => setMaxFileSizeMb(Number(e.target.value))}
+                disabled={isIndexing || isClearing}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Larger files use more memory during processing. Start with 50MB,
+                increase if needed. Files over 200MB may slow down systems with
+                limited RAM.
+              </p>
+            </div>
+
             <div className="flex gap-2">
               {isIndexing ? (
                 <button
@@ -401,7 +423,10 @@ export function SettingsPanel({
               </div>
             )}
 
-            <ProgressBar messages={progress} isActive={isIndexing && !isStopping} />
+            <ProgressBar
+              messages={progress}
+              isActive={isIndexing && !isStopping}
+            />
 
             {stats && !isIndexing && (
               <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg">

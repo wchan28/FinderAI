@@ -167,6 +167,7 @@ export interface IndexStreamCallbacks {
 export async function streamIndex(
   folder: string,
   maxChunks: number,
+  maxFileSizeMb: number,
   force: boolean,
   callbacks: IndexStreamCallbacks,
   clerkToken?: string,
@@ -181,7 +182,12 @@ export async function streamIndex(
   const res = await fetch(`${API_BASE}/api/index`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ folder, max_chunks: maxChunks, force }),
+    body: JSON.stringify({
+      folder,
+      max_chunks: maxChunks,
+      max_file_size_mb: maxFileSizeMb,
+      force,
+    }),
   });
 
   if (!res.ok) {
@@ -194,6 +200,7 @@ export async function streamIndex(
 
 export async function streamReindex(
   maxChunks: number,
+  maxFileSizeMb: number,
   callbacks: IndexStreamCallbacks,
   clerkToken?: string,
 ): Promise<void> {
@@ -207,7 +214,10 @@ export async function streamReindex(
   const res = await fetch(`${API_BASE}/api/reindex`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ max_chunks: maxChunks }),
+    body: JSON.stringify({
+      max_chunks: maxChunks,
+      max_file_size_mb: maxFileSizeMb,
+    }),
   });
 
   if (!res.ok) {
@@ -220,6 +230,7 @@ export async function streamReindex(
 
 export async function streamIndexSkipped(
   maxChunks: number,
+  maxFileSizeMb: number,
   callbacks: IndexStreamCallbacks,
   clerkToken?: string,
 ): Promise<void> {
@@ -233,7 +244,10 @@ export async function streamIndexSkipped(
   const res = await fetch(`${API_BASE}/api/index/skipped`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ max_chunks: maxChunks }),
+    body: JSON.stringify({
+      max_chunks: maxChunks,
+      max_file_size_mb: maxFileSizeMb,
+    }),
   });
 
   if (!res.ok) {

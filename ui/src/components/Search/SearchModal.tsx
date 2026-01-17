@@ -237,7 +237,6 @@ export function SearchModal({
                   })}
                 </>
               )}
-
             </>
           )}
         </div>

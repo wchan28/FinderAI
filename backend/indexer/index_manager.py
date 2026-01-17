@@ -65,7 +65,8 @@ def index_file(
     vector_store: VectorStore,
     metadata_store: MetadataStore,
     progress_callback: Optional[Callable[[str], None]] = None,
-    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE
+    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
+    max_file_size_mb: int = MAX_FILE_SIZE_MB
 ) -> dict:
     """
     Index a single file.
@@ -93,9 +94,9 @@ def index_file(
         result["skip_reason"] = f"unsupported type: {file_ext}"
         return result
 
-    if file_size_mb > MAX_FILE_SIZE_MB:
+    if file_size_mb > max_file_size_mb:
         if progress_callback:
-            progress_callback(f"  SKIPPED: File too large ({file_size_mb:.1f}MB > {MAX_FILE_SIZE_MB}MB limit)")
+            progress_callback(f"  SKIPPED: File too large ({file_size_mb:.1f}MB > {max_file_size_mb}MB limit)")
         result["skipped"] = True
         result["skip_reason"] = f"file too large: {file_size_mb:.1f}MB"
         return result
@@ -170,7 +171,8 @@ def _process_single_file(
     metadata_store: MetadataStore,
     db_lock: threading.Lock,
     force_reindex: bool = False,
-    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE
+    max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
+    max_file_size_mb: int = MAX_FILE_SIZE_MB
 ) -> dict:
     """
     Process a single file for indexing (thread-safe).
@@ -220,7 +222,7 @@ def _process_single_file(
             result["total_time"] = time.time() - start_total
             return result
 
-        if file_size_mb > MAX_FILE_SIZE_MB:
+        if file_size_mb > max_file_size_mb:
             result["skipped"] = True
             result["skip_reason"] = f"file too large: {file_size_mb:.1f}MB"
             result["total_time"] = time.time() - start_total
@@ -295,6 +297,7 @@ def index_folder(
     force_reindex: bool = False,
     parallel_workers: int = PARALLEL_WORKERS,
     max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
+    max_file_size_mb: int = MAX_FILE_SIZE_MB,
     cancel_event: Optional[threading.Event] = None,
     job_id: Optional[int] = None
 ) -> dict:
@@ -309,6 +312,7 @@ def index_folder(
         force_reindex: If True, reindex all files even if unchanged
         parallel_workers: Number of parallel workers (default: 3)
         max_chunks_per_file: Max chunks per file before skipping (default: 50)
+        max_file_size_mb: Max file size in MB before skipping (default: 50)
         cancel_event: Optional threading.Event to signal cancellation
         job_id: Optional existing job ID to resume
 
@@ -381,7 +385,8 @@ def index_folder(
                 metadata_store,
                 db_lock,
                 force_reindex,
-                max_chunks_per_file
+                max_chunks_per_file,
+                max_file_size_mb
             )] = file_path
 
         for future in as_completed(futures):
@@ -493,6 +498,7 @@ def reindex_files(
     progress_callback: Optional[Callable[[str], None]] = None,
     parallel_workers: int = PARALLEL_WORKERS,
     max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
+    max_file_size_mb: int = MAX_FILE_SIZE_MB,
     cancel_event: Optional[threading.Event] = None
 ) -> dict:
     """
@@ -505,6 +511,7 @@ def reindex_files(
         progress_callback: Optional callback for progress updates
         parallel_workers: Number of parallel workers (default: 3)
         max_chunks_per_file: Max chunks per file before skipping (default: 50)
+        max_file_size_mb: Max file size in MB before skipping (default: 50)
         cancel_event: Optional threading.Event to signal cancellation
 
     Returns:
@@ -571,7 +578,8 @@ def reindex_files(
                 metadata_store,
                 db_lock,
                 True,
-                max_chunks_per_file
+                max_chunks_per_file,
+                max_file_size_mb
             )] = file_path
 
         for future in as_completed(futures):

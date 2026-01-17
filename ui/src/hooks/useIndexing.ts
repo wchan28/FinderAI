@@ -17,9 +17,7 @@ import {
 } from "../api/client";
 import { CLERK_ENABLED } from "../lib/clerk";
 
-function useIndexingInternal(
-  getToken: () => Promise<string | null>,
-) {
+function useIndexingInternal(getToken: () => Promise<string | null>) {
   const [isIndexing, setIsIndexing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -97,7 +95,12 @@ function useIndexingInternal(
   }, []);
 
   const startIndexing = useCallback(
-    async (folder: string, maxChunks: number = 50, force: boolean = false) => {
+    async (
+      folder: string,
+      maxChunks: number = 50,
+      maxFileSizeMb: number = 50,
+      force: boolean = false,
+    ) => {
       if (isStopping) {
         setError("Please wait, previous indexing is still stopping...");
         return;
@@ -116,6 +119,7 @@ function useIndexingInternal(
       await streamIndex(
         folder,
         maxChunks,
+        maxFileSizeMb,
         force,
         {
           onProgress: (message) => {
@@ -195,7 +199,7 @@ function useIndexingInternal(
   }, [incompleteJob, refreshStatus, checkIncompleteJob, getToken]);
 
   const reindexAll = useCallback(
-    async (maxChunks: number = 50) => {
+    async (maxChunks: number = 50, maxFileSizeMb: number = 50) => {
       setIsIndexing(true);
       setProgress([]);
       setStats(null);
@@ -205,6 +209,7 @@ function useIndexingInternal(
 
       await streamReindex(
         maxChunks,
+        maxFileSizeMb,
         {
           onProgress: (message) => {
             setProgress((prev) => [...prev, message]);
@@ -235,7 +240,7 @@ function useIndexingInternal(
   );
 
   const indexSkippedFiles = useCallback(
-    async (maxChunks: number = 50) => {
+    async (maxChunks: number = 50, maxFileSizeMb: number = 50) => {
       setIsIndexing(true);
       setProgress([]);
       setStats(null);
@@ -245,6 +250,7 @@ function useIndexingInternal(
 
       await streamIndexSkipped(
         maxChunks,
+        maxFileSizeMb,
         {
           onProgress: (message) => {
             setProgress((prev) => [...prev, message]);

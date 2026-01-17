@@ -44,15 +44,18 @@ async def clear_index():
 class IndexRequest(BaseModel):
     folder: str
     max_chunks: int = 50
+    max_file_size_mb: int = 50
     force: bool = False
 
 
 class ReindexRequest(BaseModel):
     max_chunks: int = 50
+    max_file_size_mb: int = 50
 
 
 class IndexSkippedRequest(BaseModel):
     max_chunks: int = 50
+    max_file_size_mb: int = 50
 
 
 @router.post("/index/cancel")
@@ -201,7 +204,7 @@ async def resume_index(request: ResumeRequest):
     )
 
 
-async def generate_index_stream(folder: str, max_chunks: int, force: bool):
+async def generate_index_stream(folder: str, max_chunks: int, max_file_size_mb: int, force: bool):
     """Generate SSE stream for indexing progress."""
     global _cancel_event
 
@@ -228,6 +231,7 @@ async def generate_index_stream(folder: str, max_chunks: int, force: bool):
                 progress_callback=progress_callback,
                 force_reindex=force,
                 max_chunks_per_file=max_chunks,
+                max_file_size_mb=max_file_size_mb,
                 cancel_event=cancel_event
             )
             metadata_store = MetadataStore()
@@ -273,7 +277,7 @@ async def generate_index_stream(folder: str, max_chunks: int, force: bool):
 async def index(request: IndexRequest):
     """Index a folder with streaming progress updates."""
     return StreamingResponse(
-        generate_index_stream(request.folder, request.max_chunks, request.force),
+        generate_index_stream(request.folder, request.max_chunks, request.max_file_size_mb, request.force),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -283,7 +287,7 @@ async def index(request: IndexRequest):
     )
 
 
-async def generate_reindex_stream(max_chunks: int):
+async def generate_reindex_stream(max_chunks: int, max_file_size_mb: int):
     """Generate SSE stream for reindexing all currently indexed files."""
     global _cancel_event
 
@@ -309,6 +313,7 @@ async def generate_reindex_stream(max_chunks: int):
                 file_paths,
                 progress_callback=progress_callback,
                 max_chunks_per_file=max_chunks,
+                max_file_size_mb=max_file_size_mb,
                 cancel_event=cancel_event
             )
             reindex_metadata_store = MetadataStore()
@@ -354,7 +359,7 @@ async def generate_reindex_stream(max_chunks: int):
 async def reindex(request: ReindexRequest):
     """Reindex all currently indexed files with streaming progress updates."""
     return StreamingResponse(
-        generate_reindex_stream(request.max_chunks),
+        generate_reindex_stream(request.max_chunks, request.max_file_size_mb),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -380,7 +385,7 @@ def _merge_stats(existing: dict, new_stats: dict) -> dict:
     }
 
 
-async def generate_index_skipped_stream(max_chunks: int):
+async def generate_index_skipped_stream(max_chunks: int, max_file_size_mb: int):
     """Generate SSE stream for indexing previously skipped files."""
     global _cancel_event
 
@@ -405,6 +410,7 @@ async def generate_index_skipped_stream(max_chunks: int):
                 file_paths,
                 progress_callback=progress_callback,
                 max_chunks_per_file=max_chunks,
+                max_file_size_mb=max_file_size_mb,
                 cancel_event=cancel_event
             )
             reindex_metadata_store = MetadataStore()
@@ -452,7 +458,7 @@ async def generate_index_skipped_stream(max_chunks: int):
 async def index_skipped(request: IndexSkippedRequest):
     """Index previously skipped files with new max_chunks setting."""
     return StreamingResponse(
-        generate_index_skipped_stream(request.max_chunks),
+        generate_index_skipped_stream(request.max_chunks, request.max_file_size_mb),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
