@@ -81,6 +81,82 @@ jobs:
             echo "⚠️ No macOS x64 build found - upload the notarized zip as artifact named 'FinderAI-mac-x64-notarized'" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Generate update metadata files
+        run: |
+          VERSION="${{ inputs.version_tag }}"
+          VERSION="${VERSION#v}"
+          RELEASE_DATE="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+
+          rm -f ./release/latest-mac.yml ./release/latest.yml
+
+          # Generate latest-mac.yml with both arm64 and x64 files
+          ARM64_ZIP=$(ls ./release/*arm64*.zip 2>/dev/null | head -1)
+          X64_ZIP=$(ls ./release/*x64*.zip 2>/dev/null | head -1)
+
+          if [ -n "$ARM64_ZIP" ] || [ -n "$X64_ZIP" ]; then
+            echo "version: ${VERSION}" > ./release/latest-mac.yml
+            echo "files:" >> ./release/latest-mac.yml
+
+            # Add arm64 file first (preferred for Apple Silicon)
+            if [ -n "$ARM64_ZIP" ]; then
+              ARM64_NAME=$(basename "$ARM64_ZIP")
+              ARM64_SIZE=$(stat -c%s "$ARM64_ZIP")
+              ARM64_SHA512=$(openssl dgst -sha512 -binary "$ARM64_ZIP" | base64 | tr -d '\n')
+
+              echo "  - url: ${ARM64_NAME}" >> ./release/latest-mac.yml
+              echo "    sha512: ${ARM64_SHA512}" >> ./release/latest-mac.yml
+              echo "    size: ${ARM64_SIZE}" >> ./release/latest-mac.yml
+
+              # Use arm64 as the default path
+              DEFAULT_PATH="${ARM64_NAME}"
+              DEFAULT_SHA512="${ARM64_SHA512}"
+              echo "  - Added arm64: ${ARM64_NAME}" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Add x64 file
+            if [ -n "$X64_ZIP" ]; then
+              X64_NAME=$(basename "$X64_ZIP")
+              X64_SIZE=$(stat -c%s "$X64_ZIP")
+              X64_SHA512=$(openssl dgst -sha512 -binary "$X64_ZIP" | base64 | tr -d '\n')
+
+              echo "  - url: ${X64_NAME}" >> ./release/latest-mac.yml
+              echo "    sha512: ${X64_SHA512}" >> ./release/latest-mac.yml
+              echo "    size: ${X64_SIZE}" >> ./release/latest-mac.yml
+
+              # If no arm64, use x64 as default
+              if [ -z "$DEFAULT_PATH" ]; then
+                DEFAULT_PATH="${X64_NAME}"
+                DEFAULT_SHA512="${X64_SHA512}"
+              fi
+              echo "  - Added x64: ${X64_NAME}" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "path: ${DEFAULT_PATH}" >> ./release/latest-mac.yml
+            echo "sha512: ${DEFAULT_SHA512}" >> ./release/latest-mac.yml
+            echo "releaseDate: '${RELEASE_DATE}'" >> ./release/latest-mac.yml
+
+            echo "Generated latest-mac.yml" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Generate latest.yml for Windows
+          EXE_FILE=$(ls ./release/*.exe 2>/dev/null | grep -v blockmap | head -1)
+          if [ -n "$EXE_FILE" ]; then
+            EXE_NAME=$(basename "$EXE_FILE")
+            EXE_SIZE=$(stat -c%s "$EXE_FILE")
+            EXE_SHA512=$(openssl dgst -sha512 -binary "$EXE_FILE" | base64 | tr -d '\n')
+
+            echo "version: ${VERSION}" > ./release/latest.yml
+            echo "files:" >> ./release/latest.yml
+            echo "  - url: ${EXE_NAME}" >> ./release/latest.yml
+            echo "    sha512: ${EXE_SHA512}" >> ./release/latest.yml
+            echo "    size: ${EXE_SIZE}" >> ./release/latest.yml
+            echo "path: ${EXE_NAME}" >> ./release/latest.yml
+            echo "sha512: ${EXE_SHA512}" >> ./release/latest.yml
+            echo "releaseDate: '${RELEASE_DATE}'" >> ./release/latest.yml
+
+            echo "Generated latest.yml for ${EXE_NAME}" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Create Git Tag
         run: |
           git config user.name "github-actions[bot]"
