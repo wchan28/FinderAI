@@ -1,15 +1,16 @@
 name: Build and Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # Disabled tag trigger to prevent duplicate builds with build.yml
+  # push:
+  #   tags:
+  #     - 'v*'
   workflow_dispatch:
     inputs:
       create_release:
         description: 'Create a GitHub release'
         required: false
-        default: 'true'
+        default: true
         type: boolean
 
 jobs:
