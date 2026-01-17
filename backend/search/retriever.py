@@ -251,12 +251,20 @@ def search_documents(
     vector_store: Optional[VectorStore] = None,
     n_results: int = 10,
     use_reranking: bool = True,
+    file_paths: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Search indexed documents for content matching the query.
 
     Uses hybrid search (vector + BM25) and optional reranking.
     Dynamically scales initial_results based on corpus size for better coverage.
+
+    Args:
+        query: Search query
+        vector_store: Optional VectorStore instance
+        n_results: Number of results to return
+        use_reranking: Whether to rerank results
+        file_paths: Optional list of file paths to filter results (for folder-scoped search)
     """
     if vector_store is None:
         vector_store = get_vector_store()
@@ -269,6 +277,7 @@ def search_documents(
         query,
         vector_store,
         n_results=scaled_initial,
+        file_paths=file_paths,
     )
     formatted = _format_search_results(results)
 
@@ -354,7 +363,8 @@ def _expand_to_adjacent_pages(
 def get_context_for_query(
     query: str,
     vector_store: Optional[VectorStore] = None,
-    n_results: int = 10
+    n_results: int = 10,
+    file_paths: Optional[List[str]] = None,
 ) -> str:
     """
     Get formatted context string for RAG prompt.
@@ -362,14 +372,15 @@ def get_context_for_query(
     Combines semantic search with keyword-based search for section headers.
     Uses hybrid search and reranking for better results.
     """
-    context, _ = get_context_and_sources_for_query(query, vector_store, n_results)
+    context, _ = get_context_and_sources_for_query(query, vector_store, n_results, file_paths)
     return context
 
 
 def get_context_and_sources_for_query(
     query: str,
     vector_store: Optional[VectorStore] = None,
-    n_results: int = 10
+    n_results: int = 10,
+    file_paths: Optional[List[str]] = None,
 ) -> Tuple[str, List[Dict]]:
     """
     Get formatted context string and source results for RAG prompt.
@@ -390,7 +401,7 @@ def get_context_and_sources_for_query(
     if matching_section_count > 1:
         n_results = max(n_results, matching_section_count * 5)
 
-    results = search_documents(query, vector_store, n_results=config.rerank_to, use_reranking=True)
+    results = search_documents(query, vector_store, n_results=config.rerank_to, use_reranking=True, file_paths=file_paths)
     relevant_files = {r['file_path'] for r in results}
 
     matching_keywords = [

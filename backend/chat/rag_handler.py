@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Optional, List, Dict, Generator, Tuple, Union
 
 from backend.db.vector_store import get_vector_store, VectorStore
@@ -35,6 +36,123 @@ def is_file_listing_query(query: str) -> bool:
     """Check if query is asking to list files by name."""
     query_lower = query.lower()
     return any(re.search(pattern, query_lower) for pattern in FILE_LISTING_PATTERNS)
+
+
+FOLDER_REFERENCE_PATTERNS = [
+    r'\b(?:folder|directory)\s+(?:named?|called)\s+["\']?([a-zA-Z][\w\-\.]+)["\']?',
+    r'\b(?:in|from|within|inside)\s+(?:the\s+)?["\']?([a-zA-Z][\w\s\-\.]*?)["\']?\s+(?:folder|directory|dir)\b',
+    r'\b(?:search|look|find)\s+(?:in|within|inside)\s+["\']?([a-zA-Z][\w\s\-\.]*?)["\']?\s',
+    r'\b(?:in|from|within|inside)\s+(?:the\s+)?(?:folder|directory|dir)\s+(?!named|called)["\']?([a-zA-Z][\w\s\-\.]*?)["\']?(?:\s|$)',
+]
+
+CONTEXTUAL_FOLDER_PATTERNS = [
+    r'\b(?:in\s+)?(?:that|this|the\s+same)\s+(?:folder|directory)\b',
+    r'\bwhat\s+else\s+(?:is|are)\s+(?:in\s+)?there\b',
+    r'\bmore\s+(?:from|in)\s+(?:that|this)\s+(?:folder|directory)?\b',
+]
+
+FOLDER_EXTRACTION_PROMPT = """Extract the folder name the user is referring to from the conversation.
+
+Previous messages:
+{history}
+
+Current query: {query}
+
+If you can determine which folder the user is referring to, respond with ONLY the folder name (no path, no explanation).
+If no folder can be determined, respond with exactly: NONE"""
+
+
+def extract_folder_reference(
+    query: str,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
+) -> Optional[str]:
+    """
+    Extract folder name from query using regex patterns.
+    Falls back to LLM for contextual references like 'that folder'.
+    """
+    query_lower = query.lower()
+
+    for pattern in FOLDER_REFERENCE_PATTERNS:
+        match = re.search(pattern, query_lower)
+        if match:
+            folder_name = match.group(1).strip()
+            if folder_name and len(folder_name) >= 2:
+                return folder_name
+
+    if any(re.search(p, query_lower) for p in CONTEXTUAL_FOLDER_PATTERNS):
+        return _extract_folder_from_context(query, conversation_history)
+
+    return None
+
+
+def _extract_folder_from_context(
+    query: str,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
+) -> Optional[str]:
+    """Use LLM to extract folder reference from conversation context."""
+    if not conversation_history:
+        return None
+
+    history_text = "\n".join(
+        f"{msg['role']}: {msg['content']}"
+        for msg in conversation_history[-6:]
+    )
+
+    provider = get_provider()
+    messages = [
+        Message(
+            role="system",
+            content="You extract folder names from conversations. Respond with only the folder name or NONE."
+        ),
+        Message(
+            role="user",
+            content=FOLDER_EXTRACTION_PROMPT.format(history=history_text, query=query)
+        )
+    ]
+
+    response = provider.generate(messages, stream=False)
+    folder_name = response.strip()
+
+    if folder_name.upper() == "NONE" or not folder_name:
+        return None
+    return folder_name
+
+
+def _normalize_for_matching(text: str) -> str:
+    """Normalize text for folder matching (lowercase, remove separators)."""
+    return text.lower().replace(" ", "").replace("-", "").replace("_", "")
+
+
+def resolve_folder_to_file_paths(
+    folder_name: str,
+    vector_store: Optional[VectorStore] = None,
+) -> List[str]:
+    """
+    Map folder name to list of indexed file paths.
+
+    Args:
+        folder_name: User-provided folder name (e.g., "ProjectA", "Documents")
+        vector_store: VectorStore instance
+
+    Returns:
+        List of matching file paths (empty if no matches)
+    """
+    if vector_store is None:
+        vector_store = get_vector_store()
+
+    all_files = vector_store.get_indexed_files()
+    folder_normalized = _normalize_for_matching(folder_name)
+
+    matching_files = []
+    for file_path in all_files:
+        path_parts = Path(file_path).parts
+        for part in path_parts:
+            part_normalized = _normalize_for_matching(part)
+            if folder_normalized in part_normalized or part_normalized in folder_normalized:
+                matching_files.append(file_path)
+                break
+
+    return matching_files
 
 
 RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on the user's own local files.
@@ -106,10 +224,11 @@ def _format_file_listing_response(file_matches: List[Dict], query: str, by_conte
 def search_files_by_content(
     query: str,
     vector_store: Optional[VectorStore] = None,
-    n_results: int = 100
+    n_results: int = 100,
+    file_paths: Optional[List[str]] = None,
 ) -> List[Dict]:
     """Search for files whose content matches the query topic."""
-    results = search_documents(query, vector_store, n_results)
+    results = search_documents(query, vector_store, n_results, file_paths=file_paths)
     seen_files = {}
     for r in results:
         file_path = r["file_path"]
@@ -147,8 +266,15 @@ def get_answer(
     if vector_store is None:
         vector_store = get_vector_store()
 
+    folder_filter_paths = None
+    folder_name = extract_folder_reference(query, conversation_history)
+    if folder_name:
+        matching_paths = resolve_folder_to_file_paths(folder_name, vector_store)
+        if matching_paths:
+            folder_filter_paths = matching_paths
+
     if is_file_content_query(query):
-        file_matches = search_files_by_content(query, vector_store)
+        file_matches = search_files_by_content(query, vector_store, file_paths=folder_filter_paths)
         if file_matches:
             response = _format_file_listing_response(file_matches, query, by_content=True)
             if stream:
@@ -158,6 +284,9 @@ def get_answer(
 
     if is_file_listing_query(query):
         file_matches = search_files_by_name(query, vector_store)
+        if folder_filter_paths:
+            folder_paths_set = set(folder_filter_paths)
+            file_matches = [m for m in file_matches if m["file_path"] in folder_paths_set]
         if file_matches:
             response = _format_file_listing_response(file_matches, query)
             if stream:
@@ -165,7 +294,7 @@ def get_answer(
             else:
                 return response
 
-    context = get_context_for_query(query, vector_store, n_context_results)
+    context = get_context_for_query(query, vector_store, n_context_results, folder_filter_paths)
 
     user_prompt = RAG_USER_PROMPT_TEMPLATE.format(
         context=context,
@@ -208,8 +337,15 @@ def get_answer_with_sources(
     if vector_store is None:
         vector_store = get_vector_store()
 
+    folder_filter_paths = None
+    folder_name = extract_folder_reference(query, conversation_history)
+    if folder_name:
+        matching_paths = resolve_folder_to_file_paths(folder_name, vector_store)
+        if matching_paths:
+            folder_filter_paths = matching_paths
+
     if is_file_content_query(query):
-        file_matches = search_files_by_content(query, vector_store)
+        file_matches = search_files_by_content(query, vector_store, file_paths=folder_filter_paths)
         if file_matches:
             response = _format_file_listing_response(file_matches, query, by_content=True)
             sources = [
@@ -227,6 +363,9 @@ def get_answer_with_sources(
 
     if is_file_listing_query(query):
         file_matches = search_files_by_name(query, vector_store)
+        if folder_filter_paths:
+            folder_paths_set = set(folder_filter_paths)
+            file_matches = [m for m in file_matches if m["file_path"] in folder_paths_set]
         if file_matches:
             response = _format_file_listing_response(file_matches, query)
             sources = [
@@ -242,7 +381,7 @@ def get_answer_with_sources(
                 return iter([response]), sources
             return response, sources
 
-    context, source_results = get_context_and_sources_for_query(query, vector_store, n_context_results)
+    context, source_results = get_context_and_sources_for_query(query, vector_store, n_context_results, folder_filter_paths)
 
     sources = []
     seen_files = set()
