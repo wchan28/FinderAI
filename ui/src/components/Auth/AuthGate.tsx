@@ -14,7 +14,7 @@ type AuthGateProps = {
   children: ReactNode;
 };
 
-type AuthView = "main" | "email" | "code";
+type AuthView = "main" | "email" | "name" | "code";
 type AuthMode = "signin" | "signup";
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -29,6 +29,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [authView, setAuthView] = useState<AuthView>("main");
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [code, setCode] = useState("");
 
   const handleAuthCallback = useCallback(
@@ -151,9 +152,8 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   };
 
-  const signInWithEmail = async () => {
-    if (!signIn || !signInLoaded || !signUp || !signUpLoaded || !email.trim())
-      return;
+  const checkEmail = async () => {
+    if (!signIn || !signInLoaded || !email.trim()) return;
 
     setIsSigningIn(true);
     setError(null);
@@ -190,27 +190,8 @@ export function AuthGate({ children }: AuthGateProps) {
       );
 
       if (isUserNotFound) {
-        try {
-          const signUpResult = await signUp.create({
-            emailAddress: trimmedEmail,
-          });
-
-          pendingSignUpRef.current = signUpResult;
-
-          await signUp.prepareEmailAddressVerification({
-            strategy: "email_code",
-          });
-
-          setAuthMode("signup");
-          setAuthView("code");
-        } catch (signUpErr) {
-          console.error("Email sign up error:", signUpErr);
-          setError(
-            signUpErr instanceof Error
-              ? signUpErr.message
-              : "Failed to create account",
-          );
-        }
+        setAuthMode("signup");
+        setAuthView("name");
       } else {
         console.error("Email sign in error:", err);
         setError(
@@ -219,6 +200,38 @@ export function AuthGate({ children }: AuthGateProps) {
             : "Failed to send verification code",
         );
       }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const completeSignUp = async () => {
+    if (!signUp || !signUpLoaded || !fullName.trim() || !email.trim()) return;
+
+    setIsSigningIn(true);
+    setError(null);
+
+    try {
+      const nameParts = fullName.trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      const signUpResult = await signUp.create({
+        emailAddress: email.trim(),
+        firstName,
+        lastName,
+      });
+
+      pendingSignUpRef.current = signUpResult;
+
+      await signUp.prepareEmailAddressVerification({
+        strategy: "email_code",
+      });
+
+      setAuthView("code");
+    } catch (err) {
+      console.error("Email sign up error:", err);
+      setError(err instanceof Error ? err.message : "Failed to create account");
     } finally {
       setIsSigningIn(false);
     }
@@ -273,6 +286,7 @@ export function AuthGate({ children }: AuthGateProps) {
     setAuthView("main");
     setAuthMode("signin");
     setEmail("");
+    setFullName("");
     setCode("");
     setError(null);
   };
@@ -370,26 +384,68 @@ export function AuthGate({ children }: AuthGateProps) {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && signInWithEmail()}
+                      onKeyDown={(e) => e.key === "Enter" && checkEmail()}
                       placeholder="Enter your email"
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       autoFocus
                     />
 
                     <button
-                      onClick={signInWithEmail}
+                      onClick={checkEmail}
+                      disabled={isSigningIn || !signInLoaded || !email.trim()}
+                      className="w-full mt-4 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isSigningIn ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        "Continue"
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {authView === "name" && (
+                  <>
+                    <button
+                      onClick={() => setAuthView("email")}
+                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Back
+                    </button>
+
+                    <p className="text-sm text-gray-600 mb-4">
+                      Create your account for{" "}
+                      <span className="font-medium">{email}</span>
+                    </p>
+
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && completeSignUp()}
+                      placeholder="Enter your full name"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus
+                    />
+
+                    <button
+                      onClick={completeSignUp}
                       disabled={
-                        isSigningIn ||
-                        !signInLoaded ||
-                        !signUpLoaded ||
-                        !email.trim()
+                        isSigningIn || !signUpLoaded || !fullName.trim()
                       }
                       className="w-full mt-4 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                     >
                       {isSigningIn ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          Sending code...
+                          Creating account...
                         </>
                       ) : (
                         "Continue"
@@ -401,7 +457,9 @@ export function AuthGate({ children }: AuthGateProps) {
                 {authView === "code" && (
                   <>
                     <button
-                      onClick={() => setAuthView("email")}
+                      onClick={() =>
+                        setAuthView(authMode === "signup" ? "name" : "email")
+                      }
                       className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
                     >
                       <ArrowLeft className="w-4 h-4" />
