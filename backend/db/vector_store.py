@@ -146,22 +146,39 @@ class VectorStore:
     def search(
         self,
         query_embedding: List[float],
-        n_results: int = 5
+        n_results: int = 5,
+        exclude_archived: bool = True,
     ) -> List[Dict]:
         """
         Search for similar chunks using a query embedding.
 
         Returns list of results with text, metadata, and distance.
+        Optionally excludes results from archived files.
         """
+        extra_results = n_results * 2 if exclude_archived else n_results
+
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=n_results,
+            n_results=extra_results,
             include=["documents", "metadatas", "distances"]
         )
 
         search_results = []
+        archived_file_paths = set()
+
+        if exclude_archived:
+            from backend.db.metadata_store import MetadataStore
+
+            metadata_store = MetadataStore()
+            archived_files = metadata_store.get_archived_files()
+            archived_file_paths = {f["file_path"] for f in archived_files}
+
         if results["ids"] and results["ids"][0]:
             for i, doc_id in enumerate(results["ids"][0]):
+                file_path = results["metadatas"][0][i].get("file_path", "")
+                if exclude_archived and file_path in archived_file_paths:
+                    continue
+
                 search_results.append({
                     "id": doc_id,
                     "text": results["documents"][0][i],
@@ -169,19 +186,24 @@ class VectorStore:
                     "distance": results["distances"][0][i]
                 })
 
+                if len(search_results) >= n_results:
+                    break
+
         return search_results
 
     def search_with_filter(
         self,
         query_embedding: List[float],
         n_results: int = 5,
-        file_paths: Optional[List[str]] = None
+        file_paths: Optional[List[str]] = None,
+        exclude_archived: bool = True,
     ) -> List[Dict]:
         """
         Search for similar chunks with optional file path filtering.
 
         Pre-filters by file_path BEFORE semantic search for better relevance
         when user specifies a particular document.
+        Optionally excludes results from archived files.
         """
         where_filter = None
         if file_paths:
@@ -190,22 +212,40 @@ class VectorStore:
             else:
                 where_filter = {"file_path": {"$in": file_paths}}
 
+        extra_results = n_results * 2 if exclude_archived else n_results
+
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=n_results,
+            n_results=extra_results,
             where=where_filter,
             include=["documents", "metadatas", "distances"]
         )
 
         search_results = []
+        archived_file_paths = set()
+
+        if exclude_archived:
+            from backend.db.metadata_store import MetadataStore
+
+            metadata_store = MetadataStore()
+            archived_files = metadata_store.get_archived_files()
+            archived_file_paths = {f["file_path"] for f in archived_files}
+
         if results["ids"] and results["ids"][0]:
             for i, doc_id in enumerate(results["ids"][0]):
+                file_path = results["metadatas"][0][i].get("file_path", "")
+                if exclude_archived and file_path in archived_file_paths:
+                    continue
+
                 search_results.append({
                     "id": doc_id,
                     "text": results["documents"][0][i],
                     "metadata": results["metadatas"][0][i],
                     "distance": results["distances"][0][i]
                 })
+
+                if len(search_results) >= n_results:
+                    break
 
         return search_results
 

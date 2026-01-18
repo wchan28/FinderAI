@@ -1,0 +1,17 @@
+{
+  "name": "finderai",
+  "version": "1.0.4",
+  "description": "Search your local files with natural language",
+  "main": "dist-electron/main.js",
+  "dependencies": {
+    "@clerk/clerk-react": "^5.59.2",
+    "@supabase/supabase-js": "^2.89.0",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.3.9",
+    "lucide-react": "^0.312.0",
+    "mime-types": "^2.1.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1"
+  }
+}

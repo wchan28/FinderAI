@@ -1,11 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from datetime import datetime
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import List, Optional
 
 from backend.db.vector_store import get_vector_store
 from backend.db.metadata_store import MetadataStore
+from backend.subscription.manager import get_subscription_state
+from backend.subscription.usage import (
+    get_search_count,
+    get_indexed_file_count,
+    get_archived_file_count,
+)
+from backend.subscription.transition import get_files_to_be_archived
 
 router = APIRouter()
 
@@ -172,3 +180,93 @@ async def get_models():
 
     except Exception:
         return ModelsResponse(models=[])
+
+
+class SubscriptionLimits(BaseModel):
+    max_indexed_files: int
+    max_searches_per_month: int
+    conversation_history_days: int
+
+
+class SubscriptionUsage(BaseModel):
+    indexed_files: int
+    searches_this_month: int
+    archived_files: int
+
+
+class GracePeriodInfo(BaseModel):
+    in_grace_period: bool
+    days_remaining: int
+    archive_deadline: Optional[str]
+    files_to_archive_count: int
+    files_to_archive: List[str]
+
+
+class SubscriptionResponse(BaseModel):
+    tier: str
+    is_trial: bool
+    trial_days_remaining: Optional[int]
+    is_beta_user: bool
+    limits: SubscriptionLimits
+    usage: SubscriptionUsage
+    allowed_file_types: List[str]
+    grace_period: GracePeriodInfo
+
+
+def _extract_email_from_clerk_token(auth_header: Optional[str]) -> Optional[str]:
+    """Extract user email from Clerk JWT token."""
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+
+    try:
+        import jwt
+
+        token = auth_header.replace("Bearer ", "")
+        payload = jwt.decode(token, options={"verify_signature": False})
+        return payload.get("email") or payload.get("primary_email_address")
+    except Exception:
+        return None
+
+
+@router.get("/subscription", response_model=SubscriptionResponse)
+async def get_subscription(request: Request):
+    """Get current subscription state and usage."""
+    user_email = request.headers.get("X-User-Email")
+
+    if not user_email:
+        auth_header = request.headers.get("Authorization")
+        user_email = _extract_email_from_clerk_token(auth_header)
+
+    state = get_subscription_state(user_email)
+
+    trial_days_remaining = None
+    if state.is_trial and state.trial_end_date:
+        remaining = (state.trial_end_date - datetime.utcnow()).days
+        trial_days_remaining = max(0, remaining)
+
+    files_to_archive = get_files_to_be_archived(user_email) if state.tier.value == "free" else []
+
+    return SubscriptionResponse(
+        tier=state.tier.value,
+        is_trial=state.is_trial,
+        trial_days_remaining=trial_days_remaining,
+        is_beta_user=state.is_beta_user,
+        limits=SubscriptionLimits(
+            max_indexed_files=state.max_indexed_files,
+            max_searches_per_month=state.max_searches_per_month,
+            conversation_history_days=state.conversation_history_days,
+        ),
+        usage=SubscriptionUsage(
+            indexed_files=get_indexed_file_count(),
+            searches_this_month=get_search_count(),
+            archived_files=get_archived_file_count(),
+        ),
+        allowed_file_types=list(state.allowed_file_types),
+        grace_period=GracePeriodInfo(
+            in_grace_period=state.in_grace_period,
+            days_remaining=state.grace_period_days_remaining,
+            archive_deadline=state.archive_deadline.isoformat() if state.archive_deadline else None,
+            files_to_archive_count=len(files_to_archive),
+            files_to_archive=files_to_archive,
+        ),
+    )

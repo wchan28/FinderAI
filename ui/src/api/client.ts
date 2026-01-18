@@ -85,6 +85,7 @@ export type ConversationMessage = {
 export interface ChatStreamCallbacks {
   onChunk: (chunk: string) => void;
   onSources: (sources: Source[]) => void;
+  onHiddenResults?: (hiddenResults: HiddenResults) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
@@ -143,6 +144,8 @@ export async function streamChat(
             callbacks.onChunk(data.content);
           } else if (data.type === "sources") {
             callbacks.onSources(data.content);
+          } else if (data.type === "hidden_results") {
+            callbacks.onHiddenResults?.(data.content);
           } else if (data.type === "done") {
             callbacks.onDone();
           } else if (data.type === "error") {
@@ -434,6 +437,59 @@ export interface ResumeStreamCallbacks {
   onPaused: (stats: IndexStats) => void;
   onDone: () => void;
   onError: (error: string) => void;
+}
+
+export interface SubscriptionLimits {
+  max_indexed_files: number;
+  max_searches_per_month: number;
+  conversation_history_days: number;
+}
+
+export interface SubscriptionUsage {
+  indexed_files: number;
+  searches_this_month: number;
+  archived_files: number;
+}
+
+export interface GracePeriodInfo {
+  in_grace_period: boolean;
+  days_remaining: number;
+  archive_deadline: string | null;
+  files_to_archive_count: number;
+  files_to_archive: string[];
+}
+
+export interface SubscriptionResponse {
+  tier: "free" | "pro";
+  is_trial: boolean;
+  trial_days_remaining: number | null;
+  is_beta_user: boolean;
+  limits: SubscriptionLimits;
+  usage: SubscriptionUsage;
+  allowed_file_types: string[];
+  grace_period: GracePeriodInfo;
+}
+
+export interface HiddenResults {
+  count: number;
+  extensions: string[];
+}
+
+export async function getSubscription(
+  authToken?: string,
+  userEmail?: string,
+): Promise<SubscriptionResponse> {
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  if (userEmail) {
+    headers["X-User-Email"] = userEmail;
+  }
+
+  const res = await fetch(`${API_BASE}/api/subscription`, { headers });
+  if (!res.ok) throw new Error("Failed to get subscription");
+  return res.json();
 }
 
 export async function streamResume(

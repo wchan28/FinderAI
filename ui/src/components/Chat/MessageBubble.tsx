@@ -6,6 +6,7 @@ import type { Message } from "../../hooks/useChat";
 import { getSettings } from "../../api/client";
 import type { Source } from "../../api/client";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { HiddenResultsBanner } from "../Subscription/HiddenResultsBanner";
 
 interface MessageBubbleProps {
   message: Message;
@@ -174,6 +175,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {message.hiddenResults && message.hiddenResults.count > 0 && (
+          <div className="mt-2">
+            <HiddenResultsBanner hiddenResults={message.hiddenResults} />
           </div>
         )}
       </div>

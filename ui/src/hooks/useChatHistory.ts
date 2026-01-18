@@ -6,6 +6,7 @@ import type {
   ChatHistoryState,
 } from "../types/chat";
 import { createConversationId, generateTitle } from "../types/chat";
+import { useSubscription } from "../providers/SubscriptionProvider";
 
 const CHAT_HISTORY_KEY = "finderai_chat_history";
 
@@ -26,6 +27,16 @@ function cleanupStaleStreamingState(
       return msg;
     }),
   }));
+}
+
+function pruneConversationsByAge(
+  conversations: Conversation[],
+  maxAgeDays: number,
+): Conversation[] {
+  if (maxAgeDays < 0) return conversations;
+
+  const cutoffTime = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+  return conversations.filter((c) => c.updatedAt >= cutoffTime);
 }
 
 function loadFromStorage(): ChatHistoryState {
@@ -57,6 +68,23 @@ export function useChatHistory() {
   });
   const [activeConversationId, setActiveConversationId] =
     useState<ConversationId | null>(null);
+
+  const { limits, isLoading: subscriptionLoading } = useSubscription();
+
+  useEffect(() => {
+    if (subscriptionLoading) return;
+
+    const maxAgeDays = limits.conversation_history_days;
+    if (maxAgeDays >= 0) {
+      setConversations((prev) => {
+        const pruned = pruneConversationsByAge(prev, maxAgeDays);
+        if (pruned.length !== prev.length) {
+          return pruned;
+        }
+        return prev;
+      });
+    }
+  }, [limits.conversation_history_days, subscriptionLoading]);
 
   useEffect(() => {
     saveToStorage({ conversations, activeConversationId });

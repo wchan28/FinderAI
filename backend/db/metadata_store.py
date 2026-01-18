@@ -51,7 +51,8 @@ class MetadataStore:
                 file_path TEXT PRIMARY KEY,
                 file_hash TEXT NOT NULL,
                 indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                chunk_count INTEGER DEFAULT 0
+                chunk_count INTEGER DEFAULT 0,
+                archived_at TIMESTAMP DEFAULT NULL
             )
         """)
         cursor.execute("""
@@ -102,6 +103,7 @@ class MetadataStore:
             )
         """)
         self._migrate_skipped_files_table(cursor)
+        self._migrate_indexed_files_table(cursor)
         self.conn.commit()
 
     def _migrate_skipped_files_table(self, cursor) -> None:
@@ -110,6 +112,15 @@ class MetadataStore:
         columns = [row[1] for row in cursor.fetchall()]
         if "file_path" not in columns:
             cursor.execute("ALTER TABLE skipped_files ADD COLUMN file_path TEXT")
+
+    def _migrate_indexed_files_table(self, cursor) -> None:
+        """Add archived_at column to indexed_files if it doesn't exist."""
+        cursor.execute("PRAGMA table_info(indexed_files)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "archived_at" not in columns:
+            cursor.execute(
+                "ALTER TABLE indexed_files ADD COLUMN archived_at TIMESTAMP DEFAULT NULL"
+            )
 
     def get_file_hash(self, file_path: str) -> Optional[str]:
         """Get the stored hash for a file path."""
@@ -140,11 +151,82 @@ class MetadataStore:
         cursor.execute("DELETE FROM indexed_files WHERE file_path = ?", (file_path,))
         self.conn.commit()
 
-    def get_all_files(self) -> List[Dict]:
+    def get_all_files(self, include_archived: bool = False) -> List[Dict]:
         """Get all indexed files with their metadata."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM indexed_files")
+        if include_archived:
+            cursor.execute("SELECT * FROM indexed_files")
+        else:
+            cursor.execute("SELECT * FROM indexed_files WHERE archived_at IS NULL")
         return [dict(row) for row in cursor.fetchall()]
+
+    def get_active_file_count(self) -> int:
+        """Get count of non-archived indexed files."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM indexed_files WHERE archived_at IS NULL")
+        return cursor.fetchone()[0]
+
+    def get_archived_file_count(self) -> int:
+        """Get count of archived indexed files."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM indexed_files WHERE archived_at IS NOT NULL")
+        return cursor.fetchone()[0]
+
+    def get_archived_files(self) -> List[Dict]:
+        """Get all archived files with their metadata."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM indexed_files WHERE archived_at IS NOT NULL")
+        return [dict(row) for row in cursor.fetchall()]
+
+    def archive_files(self, file_paths: List[str]) -> int:
+        """Archive specified files by setting archived_at timestamp. Returns count archived."""
+        if not file_paths:
+            return 0
+        cursor = self.conn.cursor()
+        placeholders = ",".join("?" * len(file_paths))
+        cursor.execute(
+            f"UPDATE indexed_files SET archived_at = CURRENT_TIMESTAMP WHERE file_path IN ({placeholders}) AND archived_at IS NULL",
+            file_paths,
+        )
+        self.conn.commit()
+        return cursor.rowcount
+
+    def restore_archived_files(self) -> int:
+        """Restore all archived files by clearing archived_at. Returns count restored."""
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE indexed_files SET archived_at = NULL WHERE archived_at IS NOT NULL")
+        self.conn.commit()
+        return cursor.rowcount
+
+    def get_oldest_files(self, count: int) -> List[str]:
+        """Get file paths of the oldest indexed files (by indexed_at), excluding archived."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT file_path FROM indexed_files WHERE archived_at IS NULL ORDER BY indexed_at ASC LIMIT ?",
+            (count,),
+        )
+        return [row["file_path"] for row in cursor.fetchall()]
+
+    def get_files_by_extensions(self, extensions: List[str]) -> List[str]:
+        """Get file paths matching any of the given extensions, excluding archived."""
+        cursor = self.conn.cursor()
+        conditions = " OR ".join(["file_path LIKE ?" for _ in extensions])
+        patterns = [f"%{ext}" for ext in extensions]
+        cursor.execute(
+            f"SELECT file_path FROM indexed_files WHERE archived_at IS NULL AND ({conditions})",
+            patterns,
+        )
+        return [row["file_path"] for row in cursor.fetchall()]
+
+    def is_file_archived(self, file_path: str) -> bool:
+        """Check if a specific file is archived."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT archived_at FROM indexed_files WHERE file_path = ?",
+            (file_path,),
+        )
+        row = cursor.fetchone()
+        return row is not None and row["archived_at"] is not None
 
     def clear(self) -> None:
         """Clear all indexed files from the metadata store."""

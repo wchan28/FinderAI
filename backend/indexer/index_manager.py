@@ -5,7 +5,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed, Future
 from pathlib import Path
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Set
 
 from backend.extractors.pptx_extractor import extract_text_from_pptx
 from backend.extractors.pdf_extractor import extract_text_from_pdf
@@ -16,6 +16,8 @@ from backend.indexer.embedder import generate_embeddings, get_embedding_dimensio
 from backend.db.vector_store import VectorStore
 from backend.db.metadata_store import MetadataStore, compute_file_hash
 from backend.search.bm25_index import get_bm25_index
+from backend.subscription.manager import get_subscription_state
+from backend.subscription.usage import get_indexed_file_count
 
 
 SUPPORTED_EXTENSIONS = {".pptx", ".pdf", ".docx", ".xlsx"}
@@ -47,12 +49,25 @@ def _categorize_skip_reason(skip_reason: str) -> str:
     return "empty_file"
 
 
-def scan_folder(folder_path: str, extensions: set = SUPPORTED_EXTENSIONS) -> List[str]:
-    """Recursively scan a folder for supported files."""
+def scan_folder(
+    folder_path: str,
+    extensions: Optional[Set[str]] = None,
+    allowed_extensions: Optional[Set[str]] = None,
+) -> List[str]:
+    """
+    Recursively scan a folder for supported files.
+
+    Args:
+        folder_path: Path to scan
+        extensions: Deprecated, use allowed_extensions instead
+        allowed_extensions: Set of file extensions to include (e.g., {".pdf", ".docx"})
+    """
     folder = Path(folder_path)
     files = []
 
-    for ext in extensions:
+    exts_to_use = allowed_extensions or extensions or SUPPORTED_EXTENSIONS
+
+    for ext in exts_to_use:
         for f in folder.rglob(f"*{ext}"):
             if not f.name.startswith("~$"):
                 files.append(f)
@@ -299,7 +314,8 @@ def index_folder(
     max_chunks_per_file: int = MAX_CHUNKS_PER_FILE,
     max_file_size_mb: int = MAX_FILE_SIZE_MB,
     cancel_event: Optional[threading.Event] = None,
-    job_id: Optional[int] = None
+    job_id: Optional[int] = None,
+    user_email: Optional[str] = None,
 ) -> dict:
     """
     Index all supported files in a folder using parallel processing.
@@ -315,6 +331,7 @@ def index_folder(
         max_file_size_mb: Max file size in MB before skipping (default: 50)
         cancel_event: Optional threading.Event to signal cancellation
         job_id: Optional existing job ID to resume
+        user_email: Optional user email for subscription checking
 
     Returns:
         Dict with indexing statistics (includes 'cancelled' bool if stopped early)
@@ -324,6 +341,11 @@ def index_folder(
         vector_store = VectorStore(expected_dimension=expected_dim)
     if metadata_store is None:
         metadata_store = MetadataStore()
+
+    subscription_state = get_subscription_state(user_email)
+    allowed_extensions = set(subscription_state.allowed_file_types)
+    max_files_limit = subscription_state.max_indexed_files
+    current_indexed_count = get_indexed_file_count()
 
     is_resuming = False
 
@@ -337,7 +359,41 @@ def index_folder(
             if progress_callback:
                 progress_callback(f"Resuming indexing: {len(files)} files remaining")
         else:
-            files = scan_folder(folder_path)
+            files = scan_folder(folder_path, allowed_extensions=allowed_extensions)
+
+            if max_files_limit > 0:
+                remaining_slots = max_files_limit - current_indexed_count
+                if remaining_slots <= 0:
+                    if progress_callback:
+                        progress_callback(f"File limit reached ({max_files_limit} files). Upgrade to Pro for unlimited indexing.")
+                    return {
+                        "total_files": 0,
+                        "indexed_files": 0,
+                        "skipped_unchanged": 0,
+                        "skipped_limits": 0,
+                        "total_chunks": 0,
+                        "total_time": 0.0,
+                        "total_embed_time": 0.0,
+                        "file_times": [],
+                        "errors": [],
+                        "skipped_files": [],
+                        "skipped_by_reason": {
+                            "scanned_image": [],
+                            "empty_file": [],
+                            "file_too_large": [],
+                            "unsupported_type": [],
+                            "chunk_limit_exceeded": [],
+                        },
+                        "cancelled": False,
+                        "file_limit_reached": True,
+                        "file_limit": max_files_limit,
+                    }
+
+                if len(files) > remaining_slots:
+                    if progress_callback:
+                        progress_callback(f"Limiting to {remaining_slots} files (subscription limit: {max_files_limit} total)")
+                    files = files[:remaining_slots]
+
             job_id = metadata_store.create_indexing_job(folder_path, max_chunks_per_file, force_reindex, len(files))
             metadata_store.add_job_files(job_id, files)
     else:

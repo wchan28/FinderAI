@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { streamChat, Source } from "../api/client";
-import type { ConversationMessage } from "../api/client";
+import { streamChat } from "../api/client";
+import type { Source, ConversationMessage, HiddenResults } from "../api/client";
 import type { ThinkingStatus } from "../components/Chat/ThinkingIndicator";
 import { CLERK_ENABLED } from "../lib/clerk";
 
@@ -10,6 +10,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  hiddenResults?: HiddenResults;
   isStreaming?: boolean;
   status?: ThinkingStatus;
 }
@@ -104,6 +105,7 @@ function useChatInternal(
       abortControllerRef.current = controller;
 
       let sources: Source[] = [];
+      let hiddenResults: HiddenResults | undefined;
       let hasReceivedChunk = false;
 
       const clerkToken = await getToken();
@@ -137,6 +139,9 @@ function useChatInternal(
                 return updated;
               });
             },
+            onHiddenResults: (results) => {
+              hiddenResults = results;
+            },
             onDone: () => {
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
@@ -144,6 +149,7 @@ function useChatInternal(
                 if (lastMsg?.role === "assistant") {
                   lastMsg.isStreaming = false;
                   lastMsg.sources = sources;
+                  lastMsg.hiddenResults = hiddenResults;
                   lastMsg.status = undefined;
                 }
                 return updated;

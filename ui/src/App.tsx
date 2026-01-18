@@ -6,6 +6,8 @@ import { SetupWizard } from "./components/Onboarding/SetupWizard";
 import { ChatSidebar } from "./components/Sidebar/ChatSidebar";
 import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
 import { AuthGate } from "./components/Auth/AuthGate";
+import { TrialBanner } from "./components/Subscription/TrialBanner";
+import { GracePeriodBanner } from "./components/Subscription/GracePeriodBanner";
 import { checkHealth, getStatus } from "./api/client";
 import type { StatusResponse, ConversationMessage } from "./api/client";
 import { useChat } from "./hooks/useChat";
@@ -215,7 +217,11 @@ function App() {
           </div>
           <div className="flex-1" />
         </div>
-        <div className="flex-1 flex overflow-hidden relative pt-12">
+        <div className="pt-12">
+          <TrialBanner />
+          <GracePeriodBanner />
+        </div>
+        <div className="flex-1 flex overflow-hidden relative">
           {needsSetup && (
             <div className="absolute top-0 left-0 right-0 bg-yellow-50 border-b border-yellow-200 pl-20 pr-4 py-3 text-sm text-yellow-800 flex items-center gap-2 z-40">
               <AlertCircle className="w-4 h-4 no-drag" />
