@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FinderAI - Search your local files with natural language.
+Docora - Search your local files with natural language.
 
 Usage:
     python main.py index <folder>     Index all PowerPoint files in a folder
@@ -125,7 +125,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     vector_store = get_vector_store()
     metadata_store = MetadataStore()
 
-    print("FinderAI Status")
+    print("Docora Status")
     print("-" * 40)
     print(f"Total chunks in index: {vector_store.count()}")
 
@@ -140,7 +140,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="FinderAI - Search your local files with natural language",
+        description="Docora - Search your local files with natural language",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )

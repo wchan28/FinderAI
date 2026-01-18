@@ -417,7 +417,7 @@ def chat(
     if vector_store is None:
         vector_store = get_vector_store()
 
-    print("\nFinder AI - Chat with your documents")
+    print("\nDocora - Chat with your documents")
     print("Type 'quit' or 'exit' to end the conversation")
     print("-" * 40)
 

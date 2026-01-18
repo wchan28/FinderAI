@@ -29,7 +29,7 @@ class ClerkTokenMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(
-    title="FinderAI API",
+    title="Docora API",
     description="Local file search with RAG",
     version="1.0.0"
 )
@@ -51,7 +51,7 @@ app.include_router(settings_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    return {"message": "FinderAI API", "version": "1.0.0"}
+    return {"message": "Docora API", "version": "1.0.0"}
 
 
 if __name__ == "__main__":

@@ -303,7 +303,7 @@ export function AuthGate({ children }: AuthGateProps) {
                   <Search className="w-8 h-8 text-blue-500" />
                 </div>
                 <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Welcome to FinderAI
+                  Welcome to Docora
                 </h1>
                 <p className="text-gray-600">
                   Sign in to search your local files using natural language.

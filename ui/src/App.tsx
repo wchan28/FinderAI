@@ -162,7 +162,7 @@ function App() {
         <div className="drag-region absolute top-0 left-0 right-0 h-12" />
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto" />
-          <p className="mt-4 text-gray-600">Starting FinderAI...</p>
+          <p className="mt-4 text-gray-600">Starting Docora...</p>
           <p className="text-sm text-gray-400 mt-1">Loading backend services</p>
         </div>
       </div>

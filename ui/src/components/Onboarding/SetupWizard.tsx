@@ -76,7 +76,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 <Search className="w-8 h-8 text-blue-500" />
               </div>
               <h1 className="text-2xl font-semibold text-gray-900 mb-3">
-                Welcome to FinderAI
+                Welcome to Docora
               </h1>
               <p className="text-gray-600 mb-8 leading-relaxed">
                 Search your local files using natural language. Ask questions
@@ -101,7 +101,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 Set up file search
               </h2>
               <p className="text-gray-600 mb-6 text-sm leading-relaxed">
-                To search your files, FinderAI uses Voyage AI to understand your
+                To search your files, Docora uses Voyage AI to understand your
                 documents. You'll need an API key to get started.
               </p>
 

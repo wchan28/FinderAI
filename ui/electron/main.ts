@@ -57,7 +57,7 @@ function startOAuthServer(): void {
           <body>
             <div class="container">
               <h2>Authentication Successful!</h2>
-              <p>You can close this window and return to FinderAI.</p>
+              <p>You can close this window and return to Docora.</p>
             </div>
             <script>setTimeout(() => window.close(), 1500)</script>
           </body>
