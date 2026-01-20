@@ -15,11 +15,13 @@ import {
   EyeOff,
   Loader2,
   CheckCircle2,
+  User,
 } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { FolderPicker } from "./FolderPicker";
 import { ProgressBar } from "../Indexing/ProgressBar";
 import { ProviderSettings } from "./ProviderSettings";
+import { AccountTab } from "./AccountTab";
 import { useIndexing } from "../../hooks/useIndexing";
 import { useAnalytics } from "../../providers/AnalyticsProvider";
 import { useIsAdmin } from "../../hooks/useIsAdmin";
@@ -28,7 +30,7 @@ import type { SkippedByReason, SkippedFile } from "../../api/client";
 
 const SHOW_PROVIDER_SETTINGS = false;
 
-type Tab = "indexing" | "apikey" | "providers";
+type Tab = "account" | "indexing" | "apikey" | "providers";
 
 type SettingsPanelProps = {
   isOpen: boolean;
@@ -94,7 +96,7 @@ export function SettingsPanel({
   onClose,
   onRunSetup,
 }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("indexing");
+  const [activeTab, setActiveTab] = useState<Tab>("account");
   const [folder, setFolder] = useState("");
   const [maxChunks, setMaxChunks] = useState(50);
   const [maxFileSizeMb, setMaxFileSizeMb] = useState(50);
@@ -228,6 +230,19 @@ export function SettingsPanel({
       <div className="space-y-4">
         <div className="flex border-b border-gray-200 -mt-2 -mx-6 px-6">
           <button
+            onClick={() => setActiveTab("account")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "account"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Account
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab("indexing")}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "indexing"
@@ -269,6 +284,14 @@ export function SettingsPanel({
             </button>
           )}
         </div>
+
+        {activeTab === "account" && (
+          <AccountTab
+            onUpgrade={() => {
+              alert("Upgrade functionality coming soon! Stay tuned.");
+            }}
+          />
+        )}
 
         {SHOW_PROVIDER_SETTINGS && activeTab === "providers" && (
           <ProviderSettings onRunSetup={onRunSetup} />
