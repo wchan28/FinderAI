@@ -96,6 +96,7 @@ export async function streamChat(
   abortSignal?: AbortSignal,
   clerkToken?: string,
   conversationHistory?: ConversationMessage[],
+  previousSources?: string[],
 ): Promise<void> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -110,6 +111,7 @@ export async function streamChat(
     body: JSON.stringify({
       message,
       conversation_history: conversationHistory ?? [],
+      previous_sources: previousSources,
     }),
     signal: abortSignal,
   });

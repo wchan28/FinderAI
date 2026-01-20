@@ -51,6 +51,119 @@ CONTEXTUAL_FOLDER_PATTERNS = [
     r'\bmore\s+(?:from|in)\s+(?:that|this)\s+(?:folder|directory)?\b',
 ]
 
+NEW_TOPIC_PATTERNS = [
+    r'\b(in|from|within)\s+(the\s+)?[\w\s-]+\s*(folder|directory|file|document)',
+    r'\b(search|look|find)\s+(in\s+)?(all|every|other)\s+(files?|documents?)',
+    r'\bacross\s+(all|every|the)\s+(files?|documents?)',
+    r'\b(in|from)\s+(the\s+)?(spreadsheets?|pdfs?|powerpoints?|docs?|excels?)',
+    r'\bfiles?\s+(named?|called)\b',
+    r'\bwhat\s+files?\b',
+    r'\b(list|show|give)\s+(me\s+)?(all\s+)?(the\s+)?files?\b',
+]
+
+
+def is_new_topic_query(query: str) -> bool:
+    """Check if query explicitly references different files/documents."""
+    query_lower = query.lower()
+    return any(re.search(p, query_lower) for p in NEW_TOPIC_PATTERNS)
+
+
+def should_use_previous_sources(query: str, previous_sources: List[str]) -> bool:
+    """Determine if we should prioritize previous sources for this query."""
+    if not previous_sources:
+        return False
+    if is_new_topic_query(query):
+        return False
+    return True
+
+
+def _merge_prioritizing_previous(
+    previous_results: List[Dict],
+    full_results: List[Dict],
+    previous_source_files: List[str],
+    n_results: int,
+) -> List[Dict]:
+    """Merge results prioritizing those from previous source files."""
+    seen_ids = set()
+    merged = []
+
+    for r in previous_results:
+        result_id = f"{r['file_path']}::{r.get('slide_number', 0)}"
+        if result_id not in seen_ids:
+            seen_ids.add(result_id)
+            merged.append(r)
+
+    previous_files_set = set(previous_source_files)
+    for r in full_results:
+        result_id = f"{r['file_path']}::{r.get('slide_number', 0)}"
+        if result_id not in seen_ids:
+            seen_ids.add(result_id)
+            if r['file_path'] in previous_files_set:
+                merged.insert(len(previous_results), r)
+            else:
+                merged.append(r)
+
+    return merged[:n_results]
+
+
+def _get_sources_with_followup_handling(
+    query: str,
+    vector_store: VectorStore,
+    n_results: int,
+    folder_filter_paths: Optional[List[str]],
+    previous_source_files: Optional[List[str]],
+) -> List[Dict]:
+    """
+    Get source results with follow-up query handling.
+
+    If the query appears to be a follow-up (not explicitly referencing new files)
+    and previous sources exist, prioritize searching within those files first.
+    """
+    if folder_filter_paths:
+        _, results = get_context_and_sources_for_query(
+            query, vector_store, n_results, folder_filter_paths
+        )
+        return results
+
+    if previous_source_files and should_use_previous_sources(query, previous_source_files):
+        previous_results = search_documents(
+            query, vector_store, n_results, file_paths=previous_source_files
+        )
+
+        if len(previous_results) >= n_results // 2:
+            return previous_results
+
+        full_results = search_documents(query, vector_store, n_results)
+        return _merge_prioritizing_previous(
+            previous_results, full_results, previous_source_files, n_results
+        )
+
+    _, results = get_context_and_sources_for_query(query, vector_store, n_results)
+    return results
+
+
+def _format_context_from_results(results: List[Dict]) -> str:
+    """Format search results into context string for LLM."""
+    if not results:
+        return "No relevant documents found."
+
+    results.sort(key=lambda r: (
+        -r.get('relevance_score', r.get('rerank_score', 0)),
+        r.get('file_path', ''),
+        r.get('slide_number', 0),
+        r.get('chunk_index', 0)
+    ))
+
+    context_parts = []
+    for i, r in enumerate(results, 1):
+        context_parts.append(
+            f"[Document {i}]\n"
+            f"Source: {r['file_name']} (Slide {r['slide_number']})\n"
+            f"Content: {r['text']}\n"
+        )
+
+    return "\n---\n".join(context_parts)
+
 FOLDER_EXTRACTION_PROMPT = """Extract the folder name the user is referring to from the conversation.
 
 Previous messages:
@@ -317,6 +430,7 @@ def get_answer_with_sources(
     stream: bool = False,
     model: Optional[str] = None,
     conversation_history: Optional[List[Dict[str, str]]] = None,
+    previous_source_files: Optional[List[str]] = None,
 ) -> Tuple[Union[str, Generator[str, None, None]], List[Dict]]:
     """
     Get an answer to a query using RAG, along with the sources used.
@@ -330,6 +444,7 @@ def get_answer_with_sources(
         stream: If True, return a generator that yields response chunks
         model: Optional model name to override config
         conversation_history: Optional list of prior messages for multi-turn context
+        previous_source_files: Optional list of file paths from previous turn's sources
 
     Returns:
         Tuple of (LLM response or generator, list of source dicts)
@@ -381,7 +496,11 @@ def get_answer_with_sources(
                 return iter([response]), sources
             return response, sources
 
-    context, source_results = get_context_and_sources_for_query(query, vector_store, n_context_results, folder_filter_paths)
+    source_results = _get_sources_with_followup_handling(
+        query, vector_store, n_context_results, folder_filter_paths, previous_source_files
+    )
+
+    context = _format_context_from_results(source_results)
 
     sources = []
     seen_files = set()

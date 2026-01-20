@@ -82,7 +82,17 @@ function App() {
         .filter((m) => !m.isStreaming)
         .map((m) => ({ role: m.role, content: m.content }))
         .slice(-10);
-      await sendMessage(content, history);
+
+      const lastAssistantMsg = [...messages]
+        .reverse()
+        .find(
+          (m) => m.role === "assistant" && m.sources && m.sources.length > 0,
+        );
+      const previousSources = lastAssistantMsg?.sources?.map(
+        (s) => s.file_path,
+      );
+
+      await sendMessage(content, history, previousSources);
     },
     [createConversation, sendMessage, messages],
   );

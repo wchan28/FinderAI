@@ -24,6 +24,7 @@ class ChatRequest(BaseModel):
     message: str
     n_context_results: int = 10
     conversation_history: Optional[List[ConversationMessage]] = None
+    previous_sources: Optional[List[str]] = None
 
 
 def _extract_email_from_clerk_token(auth_header: Optional[str]) -> Optional[str]:
@@ -84,6 +85,7 @@ async def generate_chat_stream(
     n_context_results: int,
     conversation_history: Optional[List[ConversationMessage]] = None,
     subscription_state: Optional[SubscriptionState] = None,
+    previous_sources: Optional[List[str]] = None,
 ):
     """Generate SSE stream for chat response."""
     vector_store = get_vector_store()
@@ -101,6 +103,7 @@ async def generate_chat_stream(
         n_context_results=n_context_results,
         stream=True,
         conversation_history=history,
+        previous_source_files=previous_sources,
     )
 
     filtered_sources = sources
@@ -152,6 +155,7 @@ async def chat(request: ChatRequest, http_request: Request):
             request.n_context_results,
             request.conversation_history,
             subscription_state=state,
+            previous_sources=request.previous_sources,
         ),
         media_type="text/event-stream",
         headers={

@@ -6,6 +6,9 @@ from backend.chat.rag_handler import (
     extract_folder_reference,
     resolve_folder_to_file_paths,
     _normalize_for_matching,
+    is_new_topic_query,
+    should_use_previous_sources,
+    _merge_prioritizing_previous,
 )
 
 
@@ -120,3 +123,100 @@ class TestResolveFolderToFilePaths:
 
         result = resolve_folder_to_file_paths("my project", MockVectorStore())
         assert len(result) == 3
+
+
+class TestIsNewTopicQuery:
+    @pytest.mark.parametrize("query", [
+        "search in the budget folder",
+        "find files in Documents directory",
+        "look in all files",
+        "search every document",
+        "search in the spreadsheets",
+        "find files named report",
+        "what files contain this",
+        "list all the files",
+        "give me all the files",
+        "show files in the pdfs",
+        "search across all documents",
+    ])
+    def test_detects_new_topic_queries(self, query):
+        assert is_new_topic_query(query) is True
+
+    @pytest.mark.parametrize("query", [
+        "what is the revenue section",
+        "tell me more about that",
+        "what about exclusion criteria",
+        "explain the methodology",
+        "who is the principal investigator",
+        "when does phase 2 start",
+        "summarize the key findings",
+    ])
+    def test_followup_queries_not_detected_as_new_topic(self, query):
+        assert is_new_topic_query(query) is False
+
+
+class TestShouldUsePreviousSources:
+    def test_returns_false_when_no_previous_sources(self):
+        assert should_use_previous_sources("what is in this document", []) is False
+        assert should_use_previous_sources("what is in this document", None) is False
+
+    def test_returns_false_for_new_topic_with_previous_sources(self):
+        previous = ["/path/to/file1.pdf", "/path/to/file2.pdf"]
+        assert should_use_previous_sources("search in all files", previous) is False
+        assert should_use_previous_sources("find files named report", previous) is False
+
+    def test_returns_true_for_followup_with_previous_sources(self):
+        previous = ["/path/to/file1.pdf", "/path/to/file2.pdf"]
+        assert should_use_previous_sources("what is the revenue section", previous) is True
+        assert should_use_previous_sources("explain the methodology", previous) is True
+        assert should_use_previous_sources("summarize this", previous) is True
+
+
+class TestMergePrioritizingPrevious:
+    def test_prioritizes_previous_results(self):
+        previous_results = [
+            {"file_path": "/a/file1.pdf", "slide_number": 1, "text": "a1", "file_name": "file1.pdf"},
+        ]
+        full_results = [
+            {"file_path": "/b/file2.pdf", "slide_number": 1, "text": "b1", "file_name": "file2.pdf"},
+            {"file_path": "/a/file1.pdf", "slide_number": 2, "text": "a2", "file_name": "file1.pdf"},
+            {"file_path": "/c/file3.pdf", "slide_number": 1, "text": "c1", "file_name": "file3.pdf"},
+        ]
+        previous_files = ["/a/file1.pdf"]
+
+        merged = _merge_prioritizing_previous(previous_results, full_results, previous_files, 10)
+
+        assert merged[0]["file_path"] == "/a/file1.pdf"
+        assert merged[0]["slide_number"] == 1
+        assert merged[1]["file_path"] == "/a/file1.pdf"
+        assert merged[1]["slide_number"] == 2
+
+    def test_deduplicates_results(self):
+        previous_results = [
+            {"file_path": "/a/file1.pdf", "slide_number": 1, "text": "a1", "file_name": "file1.pdf"},
+        ]
+        full_results = [
+            {"file_path": "/a/file1.pdf", "slide_number": 1, "text": "a1", "file_name": "file1.pdf"},
+            {"file_path": "/b/file2.pdf", "slide_number": 1, "text": "b1", "file_name": "file2.pdf"},
+        ]
+        previous_files = ["/a/file1.pdf"]
+
+        merged = _merge_prioritizing_previous(previous_results, full_results, previous_files, 10)
+
+        file_slide_pairs = [(r["file_path"], r["slide_number"]) for r in merged]
+        assert len(file_slide_pairs) == len(set(file_slide_pairs))
+
+    def test_respects_n_results_limit(self):
+        previous_results = [
+            {"file_path": f"/a/file{i}.pdf", "slide_number": 1, "text": f"a{i}", "file_name": f"file{i}.pdf"}
+            for i in range(5)
+        ]
+        full_results = [
+            {"file_path": f"/b/file{i}.pdf", "slide_number": 1, "text": f"b{i}", "file_name": f"file{i}.pdf"}
+            for i in range(5)
+        ]
+        previous_files = [f"/a/file{i}.pdf" for i in range(5)]
+
+        merged = _merge_prioritizing_previous(previous_results, full_results, previous_files, 3)
+
+        assert len(merged) == 3

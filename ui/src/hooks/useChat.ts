@@ -79,7 +79,11 @@ function useChatInternal(
   }, [setMessagesWithCallback]);
 
   const sendMessage = useCallback(
-    async (content: string, conversationHistory?: ConversationMessage[]) => {
+    async (
+      content: string,
+      conversationHistory?: ConversationMessage[],
+      previousSources?: string[],
+    ) => {
       const userMessage: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -175,6 +179,7 @@ function useChatInternal(
           controller.signal,
           clerkToken ?? undefined,
           conversationHistory,
+          previousSources,
         );
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
