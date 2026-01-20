@@ -119,8 +119,8 @@ export function AuthGate({ children }: AuthGateProps) {
     try {
       const result = await signIn.create({
         strategy: "oauth_google",
-        redirectUrl: "http://localhost:3001/auth/callback",
-        actionCompleteRedirectUrl: "http://localhost:3001/auth/callback",
+        redirectUrl: "http://localhost:3002/auth/callback",
+        actionCompleteRedirectUrl: "http://localhost:3002/auth/callback",
       });
 
       pendingSignInRef.current = result;

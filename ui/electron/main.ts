@@ -20,13 +20,18 @@ let oauthServer: http.Server | null = null;
 let staticServer: http.Server | null = null;
 
 const PROTOCOL_NAME = "finderai";
-const OAUTH_PORT = 3001;
+const OAUTH_PORT = 3002;
 const STATIC_PORT = 5174;
 
 function handleAuthCallback(url: string): void {
   console.log("Auth callback received:", url);
   if (mainWindow) {
     mainWindow.webContents.send("auth-callback", url);
+    if (process.platform === "darwin") {
+      app.dock?.show();
+    }
+    app.focus({ steal: true });
+    mainWindow.show();
     mainWindow.focus();
   }
 }
@@ -59,7 +64,10 @@ function startOAuthServer(): void {
               <h2>Authentication Successful!</h2>
               <p>You can close this window and return to Docora.</p>
             </div>
-            <script>setTimeout(() => window.close(), 1500)</script>
+            <script>
+              window.close();
+              setTimeout(() => window.close(), 500);
+            </script>
           </body>
         </html>
       `);
@@ -568,6 +576,7 @@ if (!gotTheLock) {
 }
 
 app.whenReady().then(async () => {
+  killProcessOnPort(OAUTH_PORT);
   startOAuthServer();
 
   if (app.isPackaged) {
