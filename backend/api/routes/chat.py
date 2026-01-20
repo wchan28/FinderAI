@@ -97,14 +97,20 @@ async def generate_chat_stream(
 
     history = [{"role": m.role, "content": m.content} for m in (conversation_history or [])]
 
-    response_generator, sources = get_answer_with_sources(
-        message,
-        vector_store,
-        n_context_results=n_context_results,
-        stream=True,
-        conversation_history=history,
-        previous_source_files=previous_sources,
-    )
+    try:
+        response_generator, sources = get_answer_with_sources(
+            message,
+            vector_store,
+            n_context_results=n_context_results,
+            stream=True,
+            conversation_history=history,
+            previous_source_files=previous_sources,
+        )
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'sources', 'content': []})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'content': f'Failed to search documents: {str(e)}'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
+        return
 
     filtered_sources = sources
     hidden_results_count = 0
@@ -120,8 +126,11 @@ async def generate_chat_stream(
     if hidden_results_count > 0:
         yield f"data: {json.dumps({'type': 'hidden_results', 'content': {'count': hidden_results_count, 'extensions': hidden_extensions}})}\n\n"
 
-    for chunk in response_generator:
-        yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+    try:
+        for chunk in response_generator:
+            yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'error', 'content': f'Failed to generate response: {str(e)}'})}\n\n"
 
     yield f"data: {json.dumps({'type': 'done', 'content': ''})}\n\n"
 

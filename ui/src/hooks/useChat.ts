@@ -111,14 +111,34 @@ function useChatInternal(
       let sources: Source[] = [];
       let hiddenResults: HiddenResults | undefined;
       let hasReceivedChunk = false;
+      let hasReceivedAnyEvent = false;
 
       const clerkToken = await getToken();
+
+      const timeoutId = setTimeout(() => {
+        if (!hasReceivedAnyEvent && abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          setMessagesWithCallback((prev) => {
+            const updated = [...prev];
+            const lastMsg = updated[updated.length - 1];
+            if (lastMsg?.role === "assistant" && lastMsg.isStreaming) {
+              lastMsg.content = "Request timed out. Please try again.";
+              lastMsg.isStreaming = false;
+              lastMsg.status = undefined;
+            }
+            return updated;
+          });
+          setIsLoading(false);
+          abortControllerRef.current = null;
+        }
+      }, 45000);
 
       try {
         await streamChat(
           content,
           {
             onChunk: (chunk) => {
+              hasReceivedAnyEvent = true;
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
@@ -133,6 +153,7 @@ function useChatInternal(
               });
             },
             onSources: (newSources) => {
+              hasReceivedAnyEvent = true;
               sources = newSources;
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
@@ -144,9 +165,11 @@ function useChatInternal(
               });
             },
             onHiddenResults: (results) => {
+              hasReceivedAnyEvent = true;
               hiddenResults = results;
             },
             onDone: () => {
+              clearTimeout(timeoutId);
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
@@ -161,12 +184,13 @@ function useChatInternal(
               setIsLoading(false);
               abortControllerRef.current = null;
             },
-            onError: (error) => {
+            onError: () => {
+              clearTimeout(timeoutId);
               setMessagesWithCallback((prev) => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
                 if (lastMsg?.role === "assistant") {
-                  lastMsg.content = `Error: ${error}`;
+                  lastMsg.content = "Something went wrong. Please try again.";
                   lastMsg.isStreaming = false;
                   lastMsg.status = undefined;
                 }
@@ -182,6 +206,7 @@ function useChatInternal(
           previousSources,
         );
       } catch (err) {
+        clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
           return;
         }
@@ -189,7 +214,7 @@ function useChatInternal(
           const updated = [...prev];
           const lastMsg = updated[updated.length - 1];
           if (lastMsg?.role === "assistant") {
-            lastMsg.content = `Error: ${err instanceof Error ? err.message : "Unknown error"}`;
+            lastMsg.content = "Something went wrong. Please try again.";
             lastMsg.isStreaming = false;
             lastMsg.status = undefined;
           }
