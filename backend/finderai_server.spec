@@ -119,6 +119,7 @@ hiddenimports = [
     "backend.indexer",
     "backend.providers",
     "backend.search",
+    "backend.subscription",
 ]
 
 # Add all submodules for complex packages
@@ -142,6 +143,7 @@ datas += [
     ("indexer", "backend/indexer"),
     ("providers", "backend/providers"),
     ("search", "backend/search"),
+    ("subscription", "backend/subscription"),
 ]
 
 # Exclude heavy packages we don't need
