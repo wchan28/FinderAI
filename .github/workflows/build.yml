@@ -64,6 +64,21 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
+      - name: Verify AppleDouble files removed
+        run: |
+          cd ui/release
+          for zip in *.zip; do
+            if [ -f "$zip" ]; then
+              echo "Checking $zip for AppleDouble files..."
+              APPLEDOUBLE_COUNT=$(unzip -l "$zip" | grep "\._" | wc -l || echo "0")
+              echo "  Found $APPLEDOUBLE_COUNT AppleDouble files"
+              if [ "$APPLEDOUBLE_COUNT" -gt "0" ]; then
+                echo "  WARNING: AppleDouble files still present in $zip"
+                unzip -l "$zip" | grep "\._" | head -10
+              fi
+            fi
+          done
+
       - name: Upload Mac ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
@@ -127,6 +142,21 @@ jobs:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Verify AppleDouble files removed
+        run: |
+          cd ui/release
+          for zip in *.zip; do
+            if [ -f "$zip" ]; then
+              echo "Checking $zip for AppleDouble files..."
+              APPLEDOUBLE_COUNT=$(unzip -l "$zip" | grep "\._" | wc -l || echo "0")
+              echo "  Found $APPLEDOUBLE_COUNT AppleDouble files"
+              if [ "$APPLEDOUBLE_COUNT" -gt "0" ]; then
+                echo "  WARNING: AppleDouble files still present in $zip"
+                unzip -l "$zip" | grep "\._" | head -10
+              fi
+            fi
+          done
 
       - name: Upload Mac x64 artifact
         uses: actions/upload-artifact@v4
