@@ -5,6 +5,7 @@ const os = require('os');
 
 exports.default = async function (context) {
   if (process.platform !== 'darwin') {
+    console.log('Skipping fix-mac-zip.js: not running on macOS');
     return;
   }
 
@@ -12,31 +13,59 @@ exports.default = async function (context) {
     (p) => p.endsWith('.zip') && p.includes('mac')
   );
 
+  console.log(`Found ${artifacts.length} Mac ZIP artifacts to process`);
+
   for (const zipPath of artifacts) {
-    console.log(`Fixing ZIP for Gatekeeper: ${path.basename(zipPath)}`);
+    console.log(`\nFixing ZIP for Gatekeeper: ${path.basename(zipPath)}`);
 
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fix-zip-'));
+    console.log(`  Using temp directory: ${tempDir}`);
 
     try {
+      console.log(`  Extracting ${path.basename(zipPath)}...`);
       execSync(`unzip -q "${zipPath}" -d "${tempDir}"`, { stdio: 'inherit' });
 
-      const deletedCount = execSync(
-        `find "${tempDir}" -name "._*" -type f -delete -print | wc -l`
+      console.log(`  Searching for AppleDouble files...`);
+      const deletedFiles = execSync(
+        `find "${tempDir}" -name "._*" -type f -print`
       )
         .toString()
         .trim();
-      console.log(`  Removed ${deletedCount} AppleDouble files`);
 
+      const deletedCount = deletedFiles ? deletedFiles.split('\n').length : 0;
+
+      if (deletedCount > 0) {
+        console.log(`  Found ${deletedCount} AppleDouble files:`);
+        console.log(deletedFiles.split('\n').slice(0, 10).map(f => `    ${f}`).join('\n'));
+        if (deletedCount > 10) {
+          console.log(`    ... and ${deletedCount - 10} more`);
+        }
+
+        execSync(`find "${tempDir}" -name "._*" -type f -delete`);
+        console.log(`  Deleted ${deletedCount} AppleDouble files`);
+      } else {
+        console.log(`  No AppleDouble files found`);
+      }
+
+      console.log(`  Removing original ZIP...`);
       fs.unlinkSync(zipPath);
 
+      console.log(`  Re-creating ZIP with ditto (--sequesterRsrc)...`);
       execSync(
         `ditto -c -k --sequesterRsrc --keepParent "${tempDir}/FinderAI.app" "${zipPath}"`,
         { stdio: 'inherit' }
       );
 
-      console.log(`  Re-created ZIP with ditto: ${path.basename(zipPath)}`);
+      const newSize = fs.statSync(zipPath).size;
+      console.log(`  ✓ Re-created ZIP: ${path.basename(zipPath)} (${(newSize / 1024 / 1024).toFixed(2)} MB)`);
+    } catch (error) {
+      console.error(`  ✗ Error processing ${path.basename(zipPath)}:`, error.message);
+      throw error;
     } finally {
+      console.log(`  Cleaning up temp directory...`);
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
+
+  console.log(`\n✓ Finished processing ${artifacts.length} Mac ZIP artifact(s)`);
 };
