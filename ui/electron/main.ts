@@ -14,6 +14,22 @@ import { spawn, ChildProcess, execSync } from "child_process";
 import { lookup as mimeLookup } from "mime-types";
 import { setupAutoUpdater, registerAutoUpdateIPC } from "./auto-updater";
 
+type StoreInstance = {
+  get: (key: string) => unknown;
+  set: (key: string, value: unknown) => void;
+  delete: (key: string) => void;
+};
+
+let store: StoreInstance | null = null;
+
+async function initStore(): Promise<void> {
+  // Use Function constructor to create a true dynamic import that TypeScript won't transform to require()
+  const dynamicImport = new Function("modulePath", "return import(modulePath)");
+  const module = await dynamicImport("electron-store");
+  const Store = module.default;
+  store = new Store() as unknown as StoreInstance;
+}
+
 let isQuitting = false;
 let sleepBlockerId: number | null = null;
 let oauthServer: http.Server | null = null;
@@ -479,13 +495,14 @@ function createWindow(): void {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      partition: "persist:docora",
     },
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 15, y: 15 },
   });
 
   if (process.env.NODE_ENV === "development" || !app.isPackaged) {
-    mainWindow.loadURL("http://localhost:5173");
+    mainWindow.loadURL("http://127.0.0.1:5173");
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadURL(`http://127.0.0.1:${STATIC_PORT}`);
@@ -539,6 +556,18 @@ ipcMain.handle("is-sleep-prevented", () => {
   };
 });
 
+ipcMain.handle("electron-store-get", (_, key: string) => {
+  return store?.get(key) ?? null;
+});
+
+ipcMain.handle("electron-store-set", (_, key: string, value: unknown) => {
+  store?.set(key, value);
+});
+
+ipcMain.handle("electron-store-delete", (_, key: string) => {
+  store?.delete(key);
+});
+
 // Register custom protocol for OAuth callbacks
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
@@ -576,6 +605,7 @@ if (!gotTheLock) {
 }
 
 app.whenReady().then(async () => {
+  await initStore();
   killProcessOnPort(OAUTH_PORT);
   startOAuthServer();
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Message } from "./useChat";
 import type {
   Conversation,
@@ -8,7 +8,7 @@ import type {
 import { createConversationId, generateTitle } from "../types/chat";
 import { useSubscription } from "../providers/SubscriptionProvider";
 
-const CHAT_HISTORY_KEY = "finderai_chat_history";
+const CHAT_HISTORY_KEY = "chatHistory";
 
 function cleanupStaleStreamingState(
   conversations: Conversation[],
@@ -39,17 +39,15 @@ function pruneConversationsByAge(
   return conversations.filter((c) => c.updatedAt >= cutoffTime);
 }
 
-function loadFromStorage(): ChatHistoryState {
+async function loadFromStore(): Promise<ChatHistoryState> {
   try {
-    const stored = localStorage.getItem(CHAT_HISTORY_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as ChatHistoryState;
-      const conversations = cleanupStaleStreamingState(
-        parsed.conversations ?? [],
-      );
+    const stored = await window.electronAPI?.storeGet(CHAT_HISTORY_KEY);
+    if (stored && typeof stored === "object") {
+      const data = stored as ChatHistoryState;
+      const conversations = cleanupStaleStreamingState(data.conversations ?? []);
       return {
         conversations,
-        activeConversationId: parsed.activeConversationId ?? null,
+        activeConversationId: data.activeConversationId ?? null,
       };
     }
   } catch {
@@ -58,21 +56,29 @@ function loadFromStorage(): ChatHistoryState {
   return { conversations: [], activeConversationId: null };
 }
 
-function saveToStorage(state: ChatHistoryState): void {
-  localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(state));
+function saveToStore(state: ChatHistoryState): void {
+  window.electronAPI?.storeSet(CHAT_HISTORY_KEY, state);
 }
 
 export function useChatHistory() {
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    return loadFromStorage().conversations;
-  });
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] =
     useState<ConversationId | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const isInitialLoad = useRef(true);
 
   const { limits, isLoading: subscriptionLoading } = useSubscription();
 
   useEffect(() => {
-    if (subscriptionLoading) return;
+    loadFromStore().then((state) => {
+      setConversations(state.conversations);
+      setActiveConversationId(state.activeConversationId);
+      setIsLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || subscriptionLoading) return;
 
     const maxAgeDays = limits.conversation_history_days;
     if (maxAgeDays >= 0) {
@@ -84,11 +90,16 @@ export function useChatHistory() {
         return prev;
       });
     }
-  }, [limits.conversation_history_days, subscriptionLoading]);
+  }, [limits.conversation_history_days, subscriptionLoading, isLoaded]);
 
   useEffect(() => {
-    saveToStorage({ conversations, activeConversationId });
-  }, [conversations, activeConversationId]);
+    if (!isLoaded) return;
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    saveToStore({ conversations, activeConversationId });
+  }, [conversations, activeConversationId, isLoaded]);
 
   const activeConversation =
     conversations.find((c) => c.id === activeConversationId) ?? null;
@@ -177,5 +188,6 @@ export function useChatHistory() {
     clearActiveConversation,
     renameConversation,
     updateMessages,
+    isLoaded,
   };
 }

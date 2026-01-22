@@ -23,4 +23,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeAllListeners("update-ready");
   },
   getPlatform: () => process.platform,
+  storeGet: (key: string) => ipcRenderer.invoke("electron-store-get", key),
+  storeSet: (key: string, value: unknown) =>
+    ipcRenderer.invoke("electron-store-set", key, value),
+  storeDelete: (key: string) => ipcRenderer.invoke("electron-store-delete", key),
 });

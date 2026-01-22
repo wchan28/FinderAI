@@ -12,13 +12,14 @@
     "build:all:mac": "npm run build:backend:mac && npm run build",
     "build:all:win": "npm run build:backend:win && npm run build",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "concurrently \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "electron:build": "npm run build:web && electron-builder"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.59.2",
     "@supabase/supabase-js": "^2.89.0",
     "electron-log": "^5.4.3",
+    "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
     "lucide-react": "^0.312.0",
     "mime-types": "^2.1.35",

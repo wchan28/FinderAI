@@ -27,6 +27,9 @@ interface ElectronAPI {
   restartToUpdate: () => Promise<void>;
   onUpdateReady: (callback: (version: string) => void) => () => void;
   getPlatform: () => string;
+  storeGet: (key: string) => Promise<unknown>;
+  storeSet: (key: string, value: unknown) => Promise<void>;
+  storeDelete: (key: string) => Promise<void>;
 }
 
 interface Window {
