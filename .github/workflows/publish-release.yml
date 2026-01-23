@@ -50,7 +50,7 @@ jobs:
         if: ${{ inputs.build_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
-          name: FinderAI-windows
+          name: Docora-windows
           path: ./release
           run-id: ${{ inputs.build_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -59,14 +59,14 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: FinderAI-mac-arm64-notarized
+          name: Docora-mac-arm64-notarized
           path: ./release
 
       - name: Download notarized macOS x64 artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: FinderAI-mac-x64-notarized
+          name: Docora-mac-x64-notarized
           path: ./release
 
       - name: List release files
@@ -88,13 +88,13 @@ jobs:
           if ls ./release/*arm64*.zip 1> /dev/null 2>&1; then
             echo "✅ macOS ARM64 build found" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ No macOS ARM64 build found - upload the notarized zip as artifact named 'FinderAI-mac-arm64-notarized'" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ No macOS ARM64 build found - upload the notarized zip as artifact named 'Docora-mac-arm64-notarized'" >> $GITHUB_STEP_SUMMARY
           fi
 
           if ls ./release/*x64*.zip 1> /dev/null 2>&1 || ls ./release/*-mac.zip 1> /dev/null 2>&1; then
             echo "✅ macOS x64 build found" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ No macOS x64 build found - upload the notarized zip as artifact named 'FinderAI-mac-x64-notarized'" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ No macOS x64 build found - upload the notarized zip as artifact named 'Docora-mac-x64-notarized'" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Generate update metadata files
@@ -187,7 +187,7 @@ jobs:
           files: release/*
           generate_release_notes: true
           draft: ${{ inputs.draft }}
-          name: FinderAI ${{ inputs.version_tag }}
+          name: Docora ${{ inputs.version_tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

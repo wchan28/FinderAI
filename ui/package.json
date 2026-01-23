@@ -48,8 +48,9 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.finderai.app",
-    "productName": "FinderAI",
+    "appId": "com.docora.app",
+    "productName": "Docora",
+    "artifactName": "${productName}-${arch}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "wchan28",
@@ -57,9 +58,9 @@
       "releaseType": "release"
     },
     "protocols": {
-      "name": "FinderAI",
+      "name": "Docora",
       "schemes": [
-        "finderai"
+        "docora"
       ]
     },
     "directories": {
@@ -93,7 +94,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "public/icon.ico"
+      "icon": "public/icon.ico",
+      "artifactName": "${productName}.${ext}"
     },
     "extraResources": [
       {

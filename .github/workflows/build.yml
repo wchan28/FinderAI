@@ -82,7 +82,7 @@ jobs:
       - name: Upload Mac ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-mac-arm64
+          name: Docora-mac-arm64
           path: |
             ui/release/*.zip
             ui/release/*.yml
@@ -161,7 +161,7 @@ jobs:
       - name: Upload Mac x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-mac-x64
+          name: Docora-mac-x64
           path: |
             ui/release/*.zip
             ui/release/*.yml
@@ -209,7 +209,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-windows
+          name: Docora-windows
           path: |
             ui/release/*.exe
             ui/release/*.yml
@@ -228,19 +228,19 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps for macOS Notarization:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. Download the \`FinderAI-mac-arm64\` and \`FinderAI-mac-x64\` artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the \`Docora-mac-arm64\` and \`Docora-mac-x64\` artifacts" >> $GITHUB_STEP_SUMMARY
           echo "2. Unzip and notarize each .zip file locally:" >> $GITHUB_STEP_SUMMARY
           echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "   # Unzip the app" >> $GITHUB_STEP_SUMMARY
-          echo "   unzip FinderAI-*.zip -d temp_app" >> $GITHUB_STEP_SUMMARY
+          echo "   unzip Docora-*.zip -d temp_app" >> $GITHUB_STEP_SUMMARY
           echo "   " >> $GITHUB_STEP_SUMMARY
           echo "   # Notarize (this submits to Apple and waits)" >> $GITHUB_STEP_SUMMARY
-          echo "   xcrun notarytool submit FinderAI-*.zip --keychain-profile \"FinderAI-notarize\" --wait" >> $GITHUB_STEP_SUMMARY
+          echo "   xcrun notarytool submit Docora-*.zip --keychain-profile \"Docora-notarize\" --wait" >> $GITHUB_STEP_SUMMARY
           echo "   " >> $GITHUB_STEP_SUMMARY
           echo "   # Staple the notarization ticket to the app" >> $GITHUB_STEP_SUMMARY
-          echo "   xcrun stapler staple temp_app/FinderAI.app" >> $GITHUB_STEP_SUMMARY
+          echo "   xcrun stapler staple temp_app/Docora.app" >> $GITHUB_STEP_SUMMARY
           echo "   " >> $GITHUB_STEP_SUMMARY
           echo "   # Re-zip the stapled app (use ditto to preserve attributes)" >> $GITHUB_STEP_SUMMARY
-          echo "   ditto -c -k --keepParent temp_app/FinderAI.app FinderAI-notarized.zip" >> $GITHUB_STEP_SUMMARY
+          echo "   ditto -c -k --keepParent temp_app/Docora.app Docora-notarized.zip" >> $GITHUB_STEP_SUMMARY
           echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "3. Run the **Publish Release** workflow and upload your notarized .zip files" >> $GITHUB_STEP_SUMMARY

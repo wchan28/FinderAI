@@ -45,7 +45,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-Windows-NoAuth
+          name: Docora-Windows-NoAuth
           path: |
             ui/release/*.exe
             ui/release/*.yml

@@ -57,7 +57,7 @@ jobs:
       - name: Upload Mac ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-mac-arm64
+          name: Docora-mac-arm64
           path: |
             ui/release/*.zip
             ui/release/*.yml
@@ -107,7 +107,7 @@ jobs:
       - name: Upload Mac x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-mac-x64
+          name: Docora-mac-x64
           path: |
             ui/release/*.zip
             ui/release/*.yml
@@ -155,7 +155,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-windows
+          name: Docora-windows
           path: |
             ui/release/*.exe
             ui/release/*.yml
@@ -172,19 +172,19 @@ jobs:
       - name: Download Mac ARM64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: FinderAI-mac-arm64
+          name: Docora-mac-arm64
           path: ./release
 
       - name: Download Mac x64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: FinderAI-mac-x64
+          name: Docora-mac-x64
           path: ./release
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: FinderAI-windows
+          name: Docora-windows
           path: ./release
 
       - name: List release files
@@ -196,6 +196,6 @@ jobs:
           files: release/*
           generate_release_notes: true
           draft: true
-          name: FinderAI ${{ github.ref_name }}
+          name: Docora ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

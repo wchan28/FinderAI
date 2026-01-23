@@ -45,5 +45,5 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FinderAI-windows-test
+          name: Docora-windows-test
           path: ui/release/*.exe
