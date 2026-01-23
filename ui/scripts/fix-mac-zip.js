@@ -47,12 +47,18 @@ exports.default = async function (context) {
         console.log(`  No AppleDouble files found`);
       }
 
+      const appDir = fs.readdirSync(tempDir).find(f => f.endsWith('.app'));
+      if (!appDir) {
+        throw new Error('No .app directory found in extracted ZIP');
+      }
+      console.log(`  Found app bundle: ${appDir}`);
+
       console.log(`  Removing original ZIP...`);
       fs.unlinkSync(zipPath);
 
-      console.log(`  Re-creating ZIP with ditto (--sequesterRsrc)...`);
+      console.log(`  Re-creating ZIP with COPYFILE_DISABLE (prevents AppleDouble files)...`);
       execSync(
-        `ditto -c -k --sequesterRsrc --keepParent "${tempDir}/FinderAI.app" "${zipPath}"`,
+        `cd "${tempDir}" && COPYFILE_DISABLE=1 zip -r -y "${zipPath}" "${appDir}"`,
         { stdio: 'inherit' }
       );
 
