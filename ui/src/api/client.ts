@@ -494,6 +494,100 @@ export async function getSubscription(
   return res.json();
 }
 
+export type BillingPeriod = "monthly" | "annual";
+
+export interface StripeSubscriptionStatus {
+  status: string;
+  customer_id: string | null;
+  subscription_id: string | null;
+  current_period_end: number | null;
+  cancel_at_period_end: boolean | null;
+  plan_interval: string | null;
+}
+
+export async function createCheckoutSession(
+  billingPeriod: BillingPeriod,
+  successUrl: string,
+  cancelUrl: string,
+  authToken?: string,
+  userEmail?: string,
+): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  if (userEmail) {
+    headers["X-User-Email"] = userEmail;
+  }
+
+  const res = await fetch(`${API_BASE}/api/stripe/checkout`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      billing_period: billingPeriod,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to create checkout session");
+  }
+
+  const data = await res.json();
+  return data.checkout_url;
+}
+
+export async function getStripeSubscription(
+  authToken?: string,
+  userEmail?: string,
+): Promise<StripeSubscriptionStatus> {
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  if (userEmail) {
+    headers["X-User-Email"] = userEmail;
+  }
+
+  const res = await fetch(`${API_BASE}/api/stripe/subscription`, { headers });
+  if (!res.ok) {
+    throw new Error("Failed to get Stripe subscription status");
+  }
+
+  return res.json();
+}
+
+export async function createCustomerPortalSession(
+  authToken?: string,
+  userEmail?: string,
+): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  if (userEmail) {
+    headers["X-User-Email"] = userEmail;
+  }
+
+  const res = await fetch(`${API_BASE}/api/stripe/portal`, {
+    method: "POST",
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to create portal session");
+  }
+
+  const data = await res.json();
+  return data.portal_url;
+}
+
 export async function streamResume(
   jobId: number,
   callbacks: ResumeStreamCallbacks,

@@ -33,12 +33,16 @@ def get_subscription_state(user_email: Optional[str] = None) -> SubscriptionStat
 
     Priority:
     1. Beta user (email allowlist) -> permanent Pro
-    2. Within trial period -> Pro (trial)
-    3. Trial expired within grace period -> Free (with grace period info)
-    4. Trial expired past grace period -> Free (archive enforced)
+    2. Active Stripe subscription -> Pro
+    3. Within trial period -> Pro (trial)
+    4. Trial expired within grace period -> Free (with grace period info)
+    5. Trial expired past grace period -> Free (archive enforced)
     """
     if _check_beta_status(user_email):
         return _create_pro_state(is_beta_user=True)
+
+    if user_email and _check_stripe_subscription(user_email):
+        return _create_pro_state(is_trial=False, is_beta_user=False)
 
     store = _get_config_store()
     trial_start = store.get("trial_start_date")
@@ -94,6 +98,16 @@ def _create_pro_state(
         is_beta_user=is_beta_user,
         **PRO_TIER_LIMITS,
     )
+
+
+def _check_stripe_subscription(user_email: str) -> bool:
+    """Check if user has an active Stripe subscription."""
+    try:
+        from backend.subscription.stripe_client import has_active_subscription
+
+        return has_active_subscription(user_email)
+    except Exception:
+        return False
 
 
 def _create_free_state(

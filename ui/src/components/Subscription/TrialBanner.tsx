@@ -3,7 +3,11 @@ import { useSubscription } from "../../providers/SubscriptionProvider";
 
 const FREE_FILE_LIMIT = 500;
 
-export function TrialBanner() {
+type TrialBannerProps = {
+  onUpgrade?: () => void;
+};
+
+export function TrialBanner({ onUpgrade }: TrialBannerProps) {
   const {
     tier,
     is_trial,
@@ -43,7 +47,10 @@ export function TrialBanner() {
                 : `${trial_days_remaining} day${trial_days_remaining === 1 ? "" : "s"} left in your Pro trial`}
             </span>
           </div>
-          <button className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors">
+          <button
+            onClick={onUpgrade}
+            className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+          >
             Upgrade to Pro
           </button>
         </div>
@@ -70,7 +77,10 @@ export function TrialBanner() {
           <Clock className="w-4 h-4" />
           <span>Free tier - Limited to 500 files and 50 searches/month</span>
         </div>
-        <button className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors">
+        <button
+          onClick={onUpgrade}
+          className="px-3 py-1 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+        >
           Upgrade to Pro
         </button>
       </div>

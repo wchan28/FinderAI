@@ -2,7 +2,11 @@ import { AlertTriangle, Clock, Zap } from "lucide-react";
 import { useSubscription } from "../../providers/SubscriptionProvider";
 import { useState } from "react";
 
-export function GracePeriodBanner() {
+type GracePeriodBannerProps = {
+  onUpgrade?: () => void;
+};
+
+export function GracePeriodBanner({ onUpgrade }: GracePeriodBannerProps) {
   const { tier, is_beta_user, isLoading, grace_period, usage } =
     useSubscription();
   const [showFileList, setShowFileList] = useState(false);
@@ -58,7 +62,10 @@ export function GracePeriodBanner() {
                 </div>
               )}
             </div>
-            <button className="px-4 py-2 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 transition-colors flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={onUpgrade}
+              className="px-4 py-2 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 transition-colors flex items-center gap-1.5 flex-shrink-0"
+            >
               <Zap className="w-4 h-4" />
               Upgrade to Pro
             </button>
@@ -83,7 +90,10 @@ export function GracePeriodBanner() {
                 re-indexing needed.
               </p>
             </div>
-            <button className="px-4 py-2 bg-amber-600 text-white rounded text-sm font-medium hover:bg-amber-700 transition-colors flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={onUpgrade}
+              className="px-4 py-2 bg-amber-600 text-white rounded text-sm font-medium hover:bg-amber-700 transition-colors flex items-center gap-1.5 flex-shrink-0"
+            >
               <Zap className="w-4 h-4" />
               Restore Files
             </button>

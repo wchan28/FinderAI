@@ -16,6 +16,7 @@ from backend.api.routes.chat import router as chat_router
 from backend.api.routes.index import router as index_router
 from backend.api.routes.status import router as status_router
 from backend.api.routes.settings import router as settings_router
+from backend.api.routes.stripe import router as stripe_router
 from backend.providers.config import set_clerk_token
 
 
@@ -47,6 +48,7 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(index_router, prefix="/api")
 app.include_router(status_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
+app.include_router(stripe_router, prefix="/api")
 
 
 @app.get("/")

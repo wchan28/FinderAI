@@ -52,6 +52,19 @@ function handleAuthCallback(url: string): void {
   }
 }
 
+function handleCheckoutCallback(url: string): void {
+  console.log("Checkout callback received:", url);
+  if (mainWindow) {
+    mainWindow.webContents.send("checkout-callback", url);
+    if (process.platform === "darwin") {
+      app.dock?.show();
+    }
+    app.focus({ steal: true });
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
 function startOAuthServer(): void {
   oauthServer = http.createServer((req, res) => {
     const reqUrl = new URL(req.url || "/", `http://localhost:${OAUTH_PORT}`);
@@ -583,7 +596,11 @@ if (process.defaultApp) {
 app.on("open-url", (event, url) => {
   event.preventDefault();
   if (url.startsWith(`${PROTOCOL_NAME}://`)) {
-    handleAuthCallback(url);
+    if (url.includes("/checkout/")) {
+      handleCheckoutCallback(url);
+    } else {
+      handleAuthCallback(url);
+    }
   }
 });
 
@@ -595,7 +612,11 @@ if (!gotTheLock) {
   app.on("second-instance", (_event, argv) => {
     const url = argv.find((arg) => arg.startsWith(`${PROTOCOL_NAME}://`));
     if (url) {
-      handleAuthCallback(url);
+      if (url.includes("/checkout/")) {
+        handleCheckoutCallback(url);
+      } else {
+        handleAuthCallback(url);
+      }
     }
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -637,7 +658,13 @@ app.whenReady().then(async () => {
     arg.startsWith(`${PROTOCOL_NAME}://`),
   );
   if (protocolUrl) {
-    setTimeout(() => handleAuthCallback(protocolUrl), 1000);
+    setTimeout(() => {
+      if (protocolUrl.includes("/checkout/")) {
+        handleCheckoutCallback(protocolUrl);
+      } else {
+        handleAuthCallback(protocolUrl);
+      }
+    }, 1000);
   }
 
   setTimeout(() => {

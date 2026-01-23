@@ -36,6 +36,7 @@ type SettingsPanelProps = {
   isOpen: boolean;
   onClose: () => void;
   onRunSetup?: () => void;
+  onOpenPricing?: () => void;
 };
 
 function getOtherSkippedCount(
@@ -95,6 +96,7 @@ export function SettingsPanel({
   isOpen,
   onClose,
   onRunSetup,
+  onOpenPricing,
 }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("account");
   const [folder, setFolder] = useState("");
@@ -288,7 +290,8 @@ export function SettingsPanel({
         {activeTab === "account" && (
           <AccountTab
             onUpgrade={() => {
-              alert("Upgrade functionality coming soon! Stay tuned.");
+              onClose();
+              onOpenPricing?.();
             }}
           />
         )}

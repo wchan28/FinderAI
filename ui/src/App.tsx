@@ -8,11 +8,13 @@ import { SidebarToggle } from "./components/Sidebar/SidebarToggle";
 import { AuthGate } from "./components/Auth/AuthGate";
 import { TrialBanner } from "./components/Subscription/TrialBanner";
 import { GracePeriodBanner } from "./components/Subscription/GracePeriodBanner";
+import { PricingModal } from "./components/Subscription/PricingModal";
 import { checkHealth, getStatus } from "./api/client";
 import type { StatusResponse, ConversationMessage } from "./api/client";
 import { useChat } from "./hooks/useChat";
 import type { Message } from "./hooks/useChat";
 import { useChatHistory } from "./hooks/useChatHistory";
+import { useSubscription } from "./providers/SubscriptionProvider";
 import { CLERK_ENABLED } from "./lib/clerk";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -39,7 +41,10 @@ function App() {
     return stored === "true";
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [indexStatus, setIndexStatus] = useState<StatusResponse | null>(null);
+
+  const { refresh: refreshSubscription } = useSubscription();
 
   const {
     conversations,
@@ -128,6 +133,15 @@ function App() {
     const p = window.electronAPI?.getPlatform();
     if (p) setPlatform(p);
   }, []);
+
+  useEffect(() => {
+    const cleanup = window.electronAPI?.onCheckoutCallback?.((url: string) => {
+      if (url.includes("checkout/success")) {
+        refreshSubscription();
+      }
+    });
+    return cleanup;
+  }, [refreshSubscription]);
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -228,8 +242,8 @@ function App() {
           <div className="flex-1" />
         </div>
         <div className="pt-12">
-          <TrialBanner />
-          <GracePeriodBanner />
+          <TrialBanner onUpgrade={() => setIsPricingOpen(true)} />
+          <GracePeriodBanner onUpgrade={() => setIsPricingOpen(true)} />
         </div>
         <div className="flex-1 flex overflow-hidden relative">
           {needsSetup && (
@@ -286,6 +300,12 @@ function App() {
             refreshIndexStatus();
           }}
           onRunSetup={handleRunSetup}
+          onOpenPricing={() => setIsPricingOpen(true)}
+        />
+
+        <PricingModal
+          isOpen={isPricingOpen}
+          onClose={() => setIsPricingOpen(false)}
         />
       </div>
     </MaybeAuthGate>

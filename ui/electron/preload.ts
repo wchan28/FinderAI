@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("auth-callback", (_, url) => callback(url));
     return () => ipcRenderer.removeAllListeners("auth-callback");
   },
+  onCheckoutCallback: (callback: (url: string) => void) => {
+    ipcRenderer.on("checkout-callback", (_, url) => callback(url));
+    return () => ipcRenderer.removeAllListeners("checkout-callback");
+  },
   getUpdateStatus: () => ipcRenderer.invoke("get-update-status"),
   restartToUpdate: () => ipcRenderer.invoke("restart-to-update"),
   onUpdateReady: (callback: (version: string) => void) => {
@@ -26,5 +30,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   storeGet: (key: string) => ipcRenderer.invoke("electron-store-get", key),
   storeSet: (key: string, value: unknown) =>
     ipcRenderer.invoke("electron-store-set", key, value),
-  storeDelete: (key: string) => ipcRenderer.invoke("electron-store-delete", key),
+  storeDelete: (key: string) =>
+    ipcRenderer.invoke("electron-store-delete", key),
 });
