@@ -27,6 +27,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate version tag matches package.json
+        run: |
+          VERSION_TAG="${{ inputs.version_tag }}"
+          VERSION_TAG="${VERSION_TAG#v}"  # Strip leading 'v' if present
+          PACKAGE_VERSION=$(node -p "require('./ui/package.json').version")
+
+          if [ "$VERSION_TAG" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Version mismatch! Tag is v${VERSION_TAG} but package.json has version ${PACKAGE_VERSION}"
+            echo ""
+            echo "To fix this, run: cd ui && npm version ${VERSION_TAG} --no-git-tag-version"
+            echo "Then commit the change before publishing."
+            exit 1
+          fi
+
+          echo "Version validation passed: v${VERSION_TAG} matches package.json"
+
       - name: Create release directory
         run: mkdir -p release
 
