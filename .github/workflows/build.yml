@@ -40,7 +40,10 @@ jobs:
           deactivate
 
       - name: Install Node dependencies
-        run: cd ui && npm install
+        run: |
+          cd ui
+          rm -f package-lock.json
+          npm install
 
       - name: Import Code Signing Certificate
         env:
@@ -119,7 +122,10 @@ jobs:
           deactivate
 
       - name: Install Node dependencies
-        run: cd ui && npm install
+        run: |
+          cd ui
+          rm -f package-lock.json
+          npm install
 
       - name: Import Code Signing Certificate
         env:
@@ -197,7 +203,10 @@ jobs:
           Copy-Item -Recurse dist\finderai-server\* ..\ui\python-dist\win\
 
       - name: Install Node dependencies
-        run: cd ui && npm install
+        run: |
+          cd ui
+          Remove-Item -Force -ErrorAction SilentlyContinue package-lock.json
+          npm install
 
       - name: Build Electron app
         run: cd ui && npm run build -- --publish never
