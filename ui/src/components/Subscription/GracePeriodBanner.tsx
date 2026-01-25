@@ -32,7 +32,7 @@ export function GracePeriodBanner({ onUpgrade }: GracePeriodBannerProps) {
               <p className="text-sm text-orange-700 mt-1">
                 Your Pro trial has ended. You have{" "}
                 {usage.indexed_files.toLocaleString()} files indexed, but the
-                free tier allows 500. In {days_remaining} day
+                free tier allows 200. In {days_remaining} day
                 {days_remaining !== 1 ? "s" : ""},{" "}
                 {files_to_archive_count.toLocaleString()} files will be
                 archived.

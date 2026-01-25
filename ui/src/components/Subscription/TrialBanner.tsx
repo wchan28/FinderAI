@@ -1,7 +1,7 @@
 import { Sparkles, Clock, AlertTriangle } from "lucide-react";
 import { useSubscription } from "../../providers/SubscriptionProvider";
 
-const FREE_FILE_LIMIT = 500;
+const FREE_FILE_LIMIT = 200;
 
 type TrialBannerProps = {
   onUpgrade?: () => void;
@@ -75,7 +75,7 @@ export function TrialBanner({ onUpgrade }: TrialBannerProps) {
       <div className="px-4 py-2 border-b bg-gray-50 border-gray-200 text-gray-700 flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4" />
-          <span>Free tier - Limited to 500 files and 50 searches/month</span>
+          <span>Free tier - Limited to 200 files and 50 searches/month</span>
         </div>
         <button
           onClick={onUpgrade}

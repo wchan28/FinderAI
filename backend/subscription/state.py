@@ -34,7 +34,7 @@ TRIAL_DURATION_DAYS = 14
 GRACE_PERIOD_DAYS = 7
 
 FREE_TIER_LIMITS = {
-    "max_indexed_files": 500,
+    "max_indexed_files": 200,
     "max_searches_per_month": 50,
     "conversation_history_days": 7,
     "allowed_file_types": frozenset({".pdf", ".docx"}),

@@ -15,7 +15,7 @@ type PricingModalProps = {
 };
 
 const FREE_FEATURES = [
-  { text: "500 indexed files", included: true },
+  { text: "200 indexed files", included: true },
   { text: "50 searches/month", included: true },
   { text: "PDF & DOCX support", included: true },
   { text: "7-day chat history", included: true },
