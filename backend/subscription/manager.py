@@ -73,17 +73,7 @@ def _check_beta_status(user_email: Optional[str]) -> bool:
     """Check if user email is on beta allowlist."""
     if not user_email:
         return False
-
-    store = _get_config_store()
-    cached_beta = store.get("is_beta_user")
-    if cached_beta == "true":
-        return True
-
-    is_beta = user_email.lower() in {e.lower() for e in BETA_EMAILS}
-    if is_beta:
-        store.set("is_beta_user", "true")
-
-    return is_beta
+    return user_email.lower() in {e.lower() for e in BETA_EMAILS}
 
 
 def _create_pro_state(
