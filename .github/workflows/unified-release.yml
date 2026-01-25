@@ -1,0 +1,552 @@
+name: Build, Sign, Notarize & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag (e.g., v1.0.7)'
+        required: true
+        type: string
+      create_draft:
+        description: 'Create as draft release'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ========================================
+  # macOS ARM64 Build (Apple Silicon)
+  # ========================================
+  build-mac-arm64:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          source build_venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          mkdir -p ../ui/python-dist/mac
+          cp -r dist/finderai-server/* ../ui/python-dist/mac/
+          deactivate
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Import Code Signing Certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          echo $CSC_LINK | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Build, Sign & Notarize Electron app
+        run: cd ui && npm run build -- --arm64 --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        timeout-minutes: 45
+
+      - name: Verify notarization
+        run: |
+          cd ui/release
+          ZIP_FILE=$(ls -1 *arm64*.zip 2>/dev/null | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ARM64 zip found, listing directory:"
+            ls -la
+            exit 1
+          fi
+          echo "Checking notarization of: $ZIP_FILE"
+
+          TEMP_DIR=$(mktemp -d)
+          unzip -q "$ZIP_FILE" -d "$TEMP_DIR"
+          APP_PATH="$TEMP_DIR/Docora.app"
+
+          echo "=== Codesign Verification ==="
+          codesign -vvv --deep --strict "$APP_PATH" 2>&1 || true
+
+          echo ""
+          echo "=== Notarization Staple Check ==="
+          xcrun stapler validate "$APP_PATH" 2>&1 || echo "Staple validation output above"
+
+          echo ""
+          echo "=== Spctl Assessment ==="
+          spctl -a -vv "$APP_PATH" 2>&1 || echo "Spctl assessment output above"
+
+          rm -rf "$TEMP_DIR"
+
+      - name: Verify no AppleDouble files
+        run: |
+          cd ui/release
+          for zip in *.zip; do
+            if [ -f "$zip" ]; then
+              echo "Checking $zip for AppleDouble files..."
+              APPLEDOUBLE_COUNT=$(unzip -l "$zip" 2>/dev/null | grep -c "\._" || echo "0")
+              if [ "$APPLEDOUBLE_COUNT" -gt "0" ]; then
+                echo "::error::AppleDouble files found in $zip"
+                unzip -l "$zip" | grep "\._"
+                exit 1
+              fi
+              echo "OK - No AppleDouble files in $zip"
+            fi
+          done
+
+      - name: Calculate checksums
+        run: |
+          cd ui/release
+          echo "=== SHA512 Checksums ===" >> $GITHUB_STEP_SUMMARY
+          for file in *.zip; do
+            if [ -f "$file" ]; then
+              CHECKSUM=$(shasum -a 512 "$file")
+              echo "$CHECKSUM"
+              echo "- \`$file\`: \`$(echo $CHECKSUM | cut -d' ' -f1 | head -c 32)...\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Upload Mac ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Docora-mac-arm64
+          path: |
+            ui/release/*.zip
+            ui/release/*.blockmap
+          retention-days: 7
+
+  # ========================================
+  # macOS x64 Build (Intel)
+  # ========================================
+  build-mac-x64:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          source build_venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          mkdir -p ../ui/python-dist/mac
+          cp -r dist/finderai-server/* ../ui/python-dist/mac/
+          deactivate
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Import Code Signing Certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          echo $CSC_LINK | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Build, Sign & Notarize Electron app
+        run: cd ui && npm run build -- --x64 --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        timeout-minutes: 45
+
+      - name: Verify notarization
+        run: |
+          cd ui/release
+          ZIP_FILE=$(ls -1 *x64*.zip 2>/dev/null | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No x64 zip found, listing directory:"
+            ls -la
+            exit 1
+          fi
+          echo "Checking notarization of: $ZIP_FILE"
+
+          TEMP_DIR=$(mktemp -d)
+          unzip -q "$ZIP_FILE" -d "$TEMP_DIR"
+          APP_PATH="$TEMP_DIR/Docora.app"
+
+          echo "=== Codesign Verification ==="
+          codesign -vvv --deep --strict "$APP_PATH" 2>&1 || true
+
+          echo ""
+          echo "=== Notarization Staple Check ==="
+          xcrun stapler validate "$APP_PATH" 2>&1 || echo "Staple validation output above"
+
+          echo ""
+          echo "=== Spctl Assessment ==="
+          spctl -a -vv "$APP_PATH" 2>&1 || echo "Spctl assessment output above"
+
+          rm -rf "$TEMP_DIR"
+
+      - name: Verify no AppleDouble files
+        run: |
+          cd ui/release
+          for zip in *.zip; do
+            if [ -f "$zip" ]; then
+              echo "Checking $zip for AppleDouble files..."
+              APPLEDOUBLE_COUNT=$(unzip -l "$zip" 2>/dev/null | grep -c "\._" || echo "0")
+              if [ "$APPLEDOUBLE_COUNT" -gt "0" ]; then
+                echo "::error::AppleDouble files found in $zip"
+                unzip -l "$zip" | grep "\._"
+                exit 1
+              fi
+              echo "OK - No AppleDouble files in $zip"
+            fi
+          done
+
+      - name: Calculate checksums
+        run: |
+          cd ui/release
+          echo "=== SHA512 Checksums ===" >> $GITHUB_STEP_SUMMARY
+          for file in *.zip; do
+            if [ -f "$file" ]; then
+              CHECKSUM=$(shasum -a 512 "$file")
+              echo "$CHECKSUM"
+              echo "- \`$file\`: \`$(echo $CHECKSUM | cut -d' ' -f1 | head -c 32)...\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Upload Mac x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Docora-mac-x64
+          path: |
+            ui/release/*.zip
+            ui/release/*.blockmap
+          retention-days: 7
+
+  # ========================================
+  # Windows Build
+  # ========================================
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build Python backend
+        run: |
+          cd backend
+          python -m venv build_venv
+          .\build_venv\Scripts\Activate.ps1
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller finderai_server.spec --clean --noconfirm
+          New-Item -ItemType Directory -Force -Path ..\ui\python-dist\win
+          Copy-Item -Recurse dist\finderai-server\* ..\ui\python-dist\win\
+
+      - name: Install Node dependencies
+        run: cd ui && npm ci
+
+      - name: Build Electron app (NSIS)
+        run: cd ui && npm run build -- --publish never
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Docora-windows
+          path: |
+            ui/release/*.exe
+            ui/release/*.blockmap
+          retention-days: 7
+
+  # ========================================
+  # Create Release
+  # ========================================
+  create-release:
+    needs: [build-mac-arm64, build-mac-x64, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${{ inputs.version_tag }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Validate version matches package.json
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${VERSION#v}"
+          PACKAGE_VERSION=$(node -p "require('./ui/package.json').version")
+
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Version mismatch! Tag is v${VERSION} but package.json has version ${PACKAGE_VERSION}"
+            echo ""
+            echo "To fix this, run: cd ui && npm version ${VERSION} --no-git-tag-version"
+            echo "Then commit the change before publishing."
+            exit 1
+          fi
+          echo "Version validation passed: v${VERSION}"
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Download Mac ARM64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Docora-mac-arm64
+          path: ./release
+
+      - name: Download Mac x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Docora-mac-x64
+          path: ./release
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Docora-windows
+          path: ./release
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded Artifacts ==="
+          ls -la ./release/
+          echo ""
+          echo "=== File sizes ==="
+          du -h ./release/*
+
+      - name: Generate latest-mac.yml
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${VERSION#v}"
+          RELEASE_DATE="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+
+          ARM64_ZIP=$(ls ./release/*arm64*.zip 2>/dev/null | head -1)
+          X64_ZIP=$(ls ./release/*x64*.zip 2>/dev/null | head -1)
+
+          echo "version: ${VERSION}" > ./release/latest-mac.yml
+          echo "files:" >> ./release/latest-mac.yml
+
+          if [ -n "$ARM64_ZIP" ]; then
+            ARM64_NAME=$(basename "$ARM64_ZIP")
+            ARM64_SIZE=$(stat -c%s "$ARM64_ZIP")
+            ARM64_SHA512=$(openssl dgst -sha512 -binary "$ARM64_ZIP" | base64 -w 0)
+
+            echo "  - url: ${ARM64_NAME}" >> ./release/latest-mac.yml
+            echo "    sha512: ${ARM64_SHA512}" >> ./release/latest-mac.yml
+            echo "    size: ${ARM64_SIZE}" >> ./release/latest-mac.yml
+            echo "    arch: arm64" >> ./release/latest-mac.yml
+
+            DEFAULT_PATH="${ARM64_NAME}"
+            DEFAULT_SHA512="${ARM64_SHA512}"
+          fi
+
+          if [ -n "$X64_ZIP" ]; then
+            X64_NAME=$(basename "$X64_ZIP")
+            X64_SIZE=$(stat -c%s "$X64_ZIP")
+            X64_SHA512=$(openssl dgst -sha512 -binary "$X64_ZIP" | base64 -w 0)
+
+            echo "  - url: ${X64_NAME}" >> ./release/latest-mac.yml
+            echo "    sha512: ${X64_SHA512}" >> ./release/latest-mac.yml
+            echo "    size: ${X64_SIZE}" >> ./release/latest-mac.yml
+            echo "    arch: x64" >> ./release/latest-mac.yml
+
+            if [ -z "$DEFAULT_PATH" ]; then
+              DEFAULT_PATH="${X64_NAME}"
+              DEFAULT_SHA512="${X64_SHA512}"
+            fi
+          fi
+
+          echo "path: ${DEFAULT_PATH}" >> ./release/latest-mac.yml
+          echo "sha512: ${DEFAULT_SHA512}" >> ./release/latest-mac.yml
+          echo "releaseDate: '${RELEASE_DATE}'" >> ./release/latest-mac.yml
+
+          echo "=== Generated latest-mac.yml ==="
+          cat ./release/latest-mac.yml
+
+      - name: Generate latest.yml (Windows)
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${VERSION#v}"
+          RELEASE_DATE="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
+
+          EXE_FILE=$(ls ./release/*.exe 2>/dev/null | grep -v blockmap | head -1)
+
+          if [ -n "$EXE_FILE" ]; then
+            EXE_NAME=$(basename "$EXE_FILE")
+            EXE_SIZE=$(stat -c%s "$EXE_FILE")
+            EXE_SHA512=$(openssl dgst -sha512 -binary "$EXE_FILE" | base64 -w 0)
+
+            echo "version: ${VERSION}" > ./release/latest.yml
+            echo "files:" >> ./release/latest.yml
+            echo "  - url: ${EXE_NAME}" >> ./release/latest.yml
+            echo "    sha512: ${EXE_SHA512}" >> ./release/latest.yml
+            echo "    size: ${EXE_SIZE}" >> ./release/latest.yml
+            echo "path: ${EXE_NAME}" >> ./release/latest.yml
+            echo "sha512: ${EXE_SHA512}" >> ./release/latest.yml
+            echo "releaseDate: '${RELEASE_DATE}'" >> ./release/latest.yml
+
+            echo "=== Generated latest.yml ==="
+            cat ./release/latest.yml
+          fi
+
+      - name: Verify all required assets
+        run: |
+          MISSING=0
+
+          echo "Checking required release assets..."
+
+          if ls ./release/*arm64*.zip 1>/dev/null 2>&1; then
+            echo "Docora-arm64.zip found"
+          else
+            echo "::error::Missing Docora-arm64.zip"
+            MISSING=1
+          fi
+
+          if ls ./release/*x64*.zip 1>/dev/null 2>&1; then
+            echo "Docora-x64.zip found"
+          else
+            echo "::error::Missing Docora-x64.zip"
+            MISSING=1
+          fi
+
+          if ls ./release/*.exe 1>/dev/null 2>&1; then
+            echo "Docora.exe found"
+          else
+            echo "::error::Missing Docora.exe"
+            MISSING=1
+          fi
+
+          if [ -f "./release/latest-mac.yml" ]; then
+            echo "latest-mac.yml found"
+          else
+            echo "::error::Missing latest-mac.yml"
+            MISSING=1
+          fi
+
+          if [ -f "./release/latest.yml" ]; then
+            echo "latest.yml found"
+          else
+            echo "::error::Missing latest.yml"
+            MISSING=1
+          fi
+
+          if [ $MISSING -eq 1 ]; then
+            exit 1
+          fi
+
+          echo ""
+          echo "All required assets present!"
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f ${{ steps.version.outputs.version }}
+          git push -f origin ${{ steps.version.outputs.version }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Docora ${{ steps.version.outputs.version }}
+          draft: ${{ inputs.create_draft }}
+          generate_release_notes: true
+          files: |
+            release/*.zip
+            release/*.exe
+            release/latest-mac.yml
+            release/latest.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "## Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Draft:** ${{ inputs.create_draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Assets:" >> $GITHUB_STEP_SUMMARY
+          for file in ./release/*; do
+            if [ -f "$file" ]; then
+              SIZE=$(du -h "$file" | cut -f1)
+              NAME=$(basename "$file")
+              echo "- \`$NAME\` ($SIZE)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.create_draft }}" = "true" ]; then
+            echo "> This is a **draft** release. Go to GitHub Releases to publish it when ready." >> $GITHUB_STEP_SUMMARY
+          fi

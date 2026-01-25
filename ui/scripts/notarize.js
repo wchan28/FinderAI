@@ -1,4 +1,5 @@
 const { notarize } = require('@electron/notarize');
+const { execSync } = require('child_process');
 const path = require('path');
 
 exports.default = async function notarizing(context) {
@@ -8,8 +9,8 @@ exports.default = async function notarizing(context) {
     return;
   }
 
-  if (process.env.CI === 'true') {
-    console.log('Skipping notarization in CI - notarize locally before release');
+  if (process.env.SKIP_NOTARIZATION === 'true') {
+    console.log('Skipping notarization - SKIP_NOTARIZATION is set');
     return;
   }
 
@@ -44,4 +45,13 @@ exports.default = async function notarizing(context) {
   }
 
   console.log('Notarization complete!');
+
+  console.log('Stapling notarization ticket...');
+  try {
+    execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'inherit' });
+    console.log('Stapling complete!');
+  } catch (error) {
+    console.error('Stapling failed:', error.message);
+    throw error;
+  }
 };
