@@ -1,7 +1,7 @@
 {
   "name": "finderai",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -111,9 +111,9 @@
         }
       ]
     },
-    "afterPack": "./scripts/fix-python-framework.js",
-    "afterSign": "./scripts/notarize.js",
-    "afterAllArtifactBuild": "./scripts/fix-mac-zip.js"
+    "afterPack": "./scripts/fix-python-framework.cjs",
+    "afterSign": "./scripts/notarize.cjs",
+    "afterAllArtifactBuild": "./scripts/fix-mac-zip.cjs"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
