@@ -19,16 +19,23 @@ exports.default = async function notarizing(context) {
     return;
   }
 
+  const appleId = process.env.APPLE_ID;
+  const appleIdPassword = process.env.APPLE_APP_SPECIFIC_PASSWORD;
+  const teamId = process.env.APPLE_TEAM_ID;
+  const hasAppleCredentials = appleId && appleIdPassword && teamId;
+
+  if (process.env.CI === 'true' && !hasAppleCredentials) {
+    console.log('Skipping notarization in CI - Apple credentials not provided');
+    console.log('To enable notarization, set APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID');
+    return;
+  }
+
   const appName = context.packager.appInfo.productFilename;
   const appPath = path.join(appOutDir, `${appName}.app`);
 
   console.log(`Notarizing ${appPath}...`);
 
-  const appleId = process.env.APPLE_ID;
-  const appleIdPassword = process.env.APPLE_APP_SPECIFIC_PASSWORD;
-  const teamId = process.env.APPLE_TEAM_ID;
-
-  if (appleId && appleIdPassword && teamId) {
+  if (hasAppleCredentials) {
     console.log('Using Apple ID credentials from environment variables');
     await notarize({
       appPath,
