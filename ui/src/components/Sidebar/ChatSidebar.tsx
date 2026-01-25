@@ -31,6 +31,7 @@ type ChatSidebarProps = {
   onRenameConversation: (id: ConversationId, newTitle: string) => void;
   onDeleteConversation: (id: ConversationId) => void;
   onOpenSettings: () => void;
+  onUpgrade?: () => void;
 };
 
 export function ChatSidebar({
@@ -42,6 +43,7 @@ export function ChatSidebar({
   onRenameConversation,
   onDeleteConversation,
   onOpenSettings,
+  onUpgrade,
 }: ChatSidebarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -95,7 +97,7 @@ export function ChatSidebar({
       <div className="border-t border-gray-200 px-2 py-2">
         <UpdateIndicator />
         {CLERK_ENABLED ? (
-          <UserProfileMenu onOpenSettings={onOpenSettings} />
+          <UserProfileMenu onOpenSettings={onOpenSettings} onUpgrade={onUpgrade} />
         ) : (
           <button
             onClick={onOpenSettings}

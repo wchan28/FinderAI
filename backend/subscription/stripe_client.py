@@ -68,13 +68,16 @@ def get_subscription_status(customer_email: str) -> dict:
         return {"status": "none", "customer_id": customer.id}
 
     sub = subscriptions.data[0]
+    items_data = sub.get("items", {}).get("data", [])
+    sub_item = items_data[0] if items_data else None
+
     return {
         "status": sub.status,
         "customer_id": customer.id,
         "subscription_id": sub.id,
-        "current_period_end": sub.current_period_end,
+        "current_period_end": sub_item.get("current_period_end") if sub_item else None,
         "cancel_at_period_end": sub.cancel_at_period_end,
-        "plan_interval": sub.items.data[0].price.recurring.interval,
+        "plan_interval": sub_item["price"]["recurring"]["interval"] if sub_item else None,
     }
 
 

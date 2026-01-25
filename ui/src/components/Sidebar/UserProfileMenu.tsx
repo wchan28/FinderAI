@@ -5,9 +5,10 @@ import { useSubscription } from "../../providers/SubscriptionProvider";
 
 type UserProfileMenuProps = {
   onOpenSettings: () => void;
+  onUpgrade?: () => void;
 };
 
-export function UserProfileMenu({ onOpenSettings }: UserProfileMenuProps) {
+export function UserProfileMenu({ onOpenSettings, onUpgrade }: UserProfileMenuProps) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const { tier, is_trial, is_beta_user, isLoading } = useSubscription();
@@ -77,7 +78,7 @@ export function UserProfileMenu({ onOpenSettings }: UserProfileMenuProps) {
 
   const handleUpgradeClick = () => {
     setIsMenuOpen(false);
-    alert("Upgrade functionality coming soon! Stay tuned.");
+    onUpgrade?.();
   };
 
   const handleLogout = async () => {
