@@ -13,6 +13,7 @@ import fs, { createReadStream, statSync } from "fs";
 import { spawn, ChildProcess, execSync } from "child_process";
 import { lookup as mimeLookup } from "mime-types";
 import { setupAutoUpdater, registerAutoUpdateIPC } from "./auto-updater";
+import { migrateUserData } from "./migration";
 
 type StoreInstance = {
   get: (key: string) => unknown;
@@ -626,6 +627,12 @@ if (!gotTheLock) {
 }
 
 app.whenReady().then(async () => {
+  try {
+    await migrateUserData();
+  } catch (error) {
+    console.error("Failed to migrate user data:", error);
+  }
+
   await initStore();
   killProcessOnPort(OAUTH_PORT);
   startOAuthServer();
