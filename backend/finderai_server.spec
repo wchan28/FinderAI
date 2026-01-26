@@ -77,6 +77,8 @@ hiddenimports = [
     "voyageai",
     "google.generativeai",
     "ollama",
+    # Stripe for payments
+    "stripe",
     # PIL/Pillow (required by python-pptx for image handling)
     "PIL",
     "PIL.Image",
