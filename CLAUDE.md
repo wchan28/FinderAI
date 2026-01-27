@@ -102,6 +102,23 @@ These rules ensure maintainability, safety, and developer velocity.
 
 - **E-4 (SHOULD)** Work in a temp directory when processing release artifacts. Only delete originals after verification passes.
 
+- **E-5 (MUST)** Use in-place stapling for DMGs to preserve visual elements (background, Applications shortcut):
+  ```bash
+  # ✅ Good - preserves DMG visual elements
+  hdiutil convert original.dmg -format UDRW -o temp-rw.dmg
+  hdiutil attach temp-rw.dmg -mountpoint ./mount
+  xcrun stapler staple ./mount/Docora.app
+  hdiutil detach ./mount
+  hdiutil convert temp-rw.dmg -format UDZO -o final.dmg
+
+  # ❌ Bad - loses background image and Applications shortcut
+  hdiutil create -srcfolder Docora.app -o output.dmg
+  ```
+
+- **E-6 (MUST)** Keep app name as `Docora.app` during notarization - don't rename to `Docora-arm64.app`:
+  - electron-builder's `artifactName` only affects output filenames (DMG, ZIP), not the `.app` inside
+  - The app inside DMG is always `Docora.app` regardless of architecture
+
 ---
 
 ## Writing Functions Best Practices
