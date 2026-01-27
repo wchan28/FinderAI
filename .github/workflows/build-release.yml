@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       create_release:
-        description: 'Create a GitHub release'
+        description: "Create a GitHub release"
         required: false
         default: true
         type: boolean
@@ -23,12 +23,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Build Python backend
         run: |
@@ -47,7 +47,15 @@ jobs:
         run: cd ui && npm ci
 
       - name: Build Electron app
-        run: cd ui && npm run build -- --publish never
+        run: |
+          cd ui
+          # Retry logic for hdiutil race condition on macOS DMG builds
+          for i in 1 2 3; do
+            sync
+            npm run build -- --publish never && break
+            echo "Build attempt $i failed, retrying in 5 seconds..."
+            sleep 5
+          done
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
@@ -60,6 +68,7 @@ jobs:
           name: Docora-mac-arm64
           path: |
             ui/release/*.zip
+            ui/release/*.dmg
             ui/release/*.yml
             ui/release/*.yaml
             ui/release/*.blockmap
@@ -73,12 +82,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Build Python backend
         run: |
@@ -97,7 +106,15 @@ jobs:
         run: cd ui && npm ci
 
       - name: Build Electron app
-        run: cd ui && npm run build -- --publish never
+        run: |
+          cd ui
+          # Retry logic for hdiutil race condition on macOS DMG builds
+          for i in 1 2 3; do
+            sync
+            npm run build -- --publish never && break
+            echo "Build attempt $i failed, retrying in 5 seconds..."
+            sleep 5
+          done
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
@@ -110,6 +127,7 @@ jobs:
           name: Docora-mac-x64
           path: |
             ui/release/*.zip
+            ui/release/*.dmg
             ui/release/*.yml
             ui/release/*.yaml
             ui/release/*.blockmap
@@ -123,12 +141,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Build Python backend
         run: |
