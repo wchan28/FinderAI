@@ -1,7 +1,7 @@
 {
   "name": "docora",
   "private": true,
-  "version": "1.0.8",
+  "version": "1.0.9",
   "scripts": {
     "dev": "vite",
     "build:web": "tsc && vite build",
@@ -77,7 +77,10 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": "zip",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "public/icon.icns",
       "identity": "Warren Chan (XHL625JL78)",
       "hardenedRuntime": true,
@@ -111,6 +114,27 @@
         }
       ]
     },
+    "dmg": {
+      "background": "assets/dmg-background.png",
+      "iconSize": 100,
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 140,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 400,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "afterPack": "./scripts/fix-python-framework.cjs",
     "afterSign": "./scripts/notarize.cjs",
     "afterAllArtifactBuild": "./scripts/fix-mac-zip.cjs"
@@ -135,6 +159,7 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.12",
     "postcss": "^8.5.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.2",
     "vite": "^5.4.21",
