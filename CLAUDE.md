@@ -79,6 +79,31 @@ These rules ensure maintainability, safety, and developer velocity.
 
 ---
 
+### 8 - Electron/macOS Release
+
+- **E-1 (MUST)** When re-zipping macOS apps after stapling, use `COPYFILE_DISABLE=1 zip` not `ditto`:
+  ```bash
+  # ✅ Good - no AppleDouble files
+  COPYFILE_DISABLE=1 zip -r -y output.zip Docora.app
+
+  # ❌ Bad - creates ._ files that trigger Gatekeeper
+  ditto -c -k --keepParent Docora.app output.zip
+  ```
+
+- **E-2 (MUST)** Regenerate `latest-mac.yml` sha512 hashes after stapling (file size changes):
+  ```bash
+  openssl dgst -sha512 -binary file.zip | base64
+  ```
+
+- **E-3 (MUST)** When renaming `name` in `package.json`, add a migration for user data. Electron's `userData` path changes:
+  - `~/Library/Application Support/{old-name}/` → `~/Library/Application Support/{new-name}/`
+  - This breaks electron-store data and web partition data (auth sessions)
+  - See `ui/electron/migration.ts` for reference implementation
+
+- **E-4 (SHOULD)** Work in a temp directory when processing release artifacts. Only delete originals after verification passes.
+
+---
+
 ## Writing Functions Best Practices
 
 When evaluating whether a function you implemented is good or not, use this checklist:
