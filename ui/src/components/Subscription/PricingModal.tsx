@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Check, Sparkles, Zap, Loader2, CreditCard } from "lucide-react";
+import {
+  X,
+  Check,
+  Sparkles,
+  Zap,
+  Loader2,
+  CreditCard,
+  Lock,
+} from "lucide-react";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import {
   createCheckoutSession,
@@ -15,30 +23,33 @@ type PricingModalProps = {
 };
 
 const FREE_FEATURES = [
-  { text: "200 indexed files", included: true },
-  { text: "50 searches/month", included: true },
-  { text: "PDF & DOCX support", included: true },
-  { text: "7-day chat history", included: true },
-  { text: "Unlimited files", included: false },
-  { text: "Unlimited searches", included: false },
-  { text: "PowerPoint & Excel", included: false },
-  { text: "Unlimited history", included: false },
+  "Natural language search",
+  "200 searchable files",
+  "50 searches per month",
+  "PDF & Word document support",
+  "AI chat with your documents",
+  "Source attribution",
+  "Local-first privacy",
 ];
 
 const PRO_FEATURES = [
-  { text: "Unlimited indexed files", included: true },
-  { text: "Unlimited searches", included: true },
-  { text: "PDF, DOCX, PPTX, XLSX", included: true },
-  { text: "Unlimited chat history", included: true },
-  { text: "Priority support", included: true },
-  { text: "Early access to features", included: true },
+  "Unlimited searchable files",
+  "Unlimited searches",
+  "All file types supported",
+  "Priority support",
+  "Early access to new features",
 ];
 
+const ORIGINAL_MONTHLY_PRICE = 15;
+const ORIGINAL_ANNUAL_PRICE = 140;
 const MONTHLY_PRICE = 9;
 const ANNUAL_PRICE = 84;
-const ANNUAL_MONTHLY_EQUIVALENT = ANNUAL_PRICE / 12;
-const SAVINGS_PERCENT = Math.round(
-  (1 - ANNUAL_MONTHLY_EQUIVALENT / MONTHLY_PRICE) * 100,
+const ANNUAL_MONTHLY_EQUIVALENT = Math.round(ANNUAL_PRICE / 12);
+const MONTHLY_SAVINGS_PERCENT = Math.round(
+  (1 - MONTHLY_PRICE / ORIGINAL_MONTHLY_PRICE) * 100,
+);
+const ANNUAL_SAVINGS_PERCENT = Math.round(
+  (1 - ANNUAL_PRICE / ORIGINAL_ANNUAL_PRICE) * 100,
 );
 
 export function PricingModal({ isOpen, onClose }: PricingModalProps) {
@@ -187,148 +198,182 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
           </div>
         ) : (
           <>
-            <div className="flex justify-center py-6">
-              <div className="bg-gray-100 rounded-lg p-1 flex">
-                <button
-                  onClick={() => setBillingPeriod("monthly")}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    billingPeriod === "monthly"
-                      ? "bg-white shadow text-gray-900"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setBillingPeriod("annual")}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                    billingPeriod === "annual"
-                      ? "bg-white shadow text-gray-900"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Annual
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                    Save {SAVINGS_PERCENT}%
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 pb-6 grid md:grid-cols-2 gap-6">
-              <div className="border border-gray-200 rounded-xl p-6">
+            <div className="px-6 py-6 grid md:grid-cols-2 gap-6">
+              {/* Free Tier */}
+              <div className="border border-gray-200 rounded-xl p-6 lg:p-8 h-full">
                 <h3 className="text-lg font-semibold text-gray-900">Free</h3>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold text-gray-900">$0</span>
-                  <span className="text-gray-500 ml-2">/month</span>
+                <div className="mt-4 mb-6">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-bold text-gray-900">$0</span>
+                    <span className="text-gray-500">forever</span>
+                  </div>
                 </div>
-                <p className="mt-2 text-sm text-gray-600">
-                  Perfect for getting started
-                </p>
-
-                <ul className="mt-6 space-y-3">
-                  {FREE_FEATURES.map((feature, i) => (
-                    <li key={i} className="flex items-center gap-3">
-                      {feature.included ? (
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-green-600" />
-                        </div>
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <X className="w-3 h-3 text-gray-400" />
-                        </div>
-                      )}
-                      <span
-                        className={
-                          feature.included
-                            ? "text-gray-700"
-                            : "text-gray-400 line-through"
-                        }
-                      >
-                        {feature.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
 
                 <button
                   disabled
-                  className="mt-6 w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed mb-4"
                 >
                   {tier === "free" && !is_trial ? "Current Plan" : "Free Tier"}
                 </button>
+
+                <div className="border-t border-gray-200 pt-6">
+                  <p className="text-sm font-medium text-gray-900 mb-4">
+                    Includes:
+                  </p>
+                  <ul className="space-y-2.5">
+                    {FREE_FEATURES.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-center gap-2.5 text-sm text-gray-700"
+                      >
+                        <Check
+                          className="w-4 h-4 text-indigo-500 flex-shrink-0"
+                          strokeWidth={2.5}
+                        />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
 
-              <div className="relative border-2 border-blue-500 rounded-xl p-6 bg-blue-50/30">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-blue-500 text-white text-xs font-medium px-3 py-1 rounded-full">
-                    Most Popular
-                  </span>
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-500" />
-                  Pro
-                </h3>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold text-gray-900">
-                    $
-                    {billingPeriod === "monthly" ? MONTHLY_PRICE : ANNUAL_PRICE}
-                  </span>
-                  <span className="text-gray-500 ml-2">
-                    /{billingPeriod === "monthly" ? "month" : "year"}
-                  </span>
-                </div>
-                {billingPeriod === "annual" && (
-                  <p className="mt-1 text-sm text-green-600">
-                    ${ANNUAL_MONTHLY_EQUIVALENT.toFixed(0)}/month billed
-                    annually
+              {/* Pro Tier */}
+              <div className="relative rounded-xl border-2 border-indigo-500 bg-white shadow-lg h-full overflow-hidden">
+                {/* Launch Pricing Banner */}
+                <div className="bg-indigo-500 text-white py-2 px-4">
+                  <p className="text-center text-sm font-medium flex items-center justify-center gap-2">
+                    <Zap className="w-3.5 h-3.5" />
+                    Launch Pricing
+                    <span className="text-white/70">·</span>
+                    <Lock className="w-3 h-3" />
+                    Lock in this rate forever
                   </p>
-                )}
-                <p className="mt-2 text-sm text-gray-600">
-                  For power users who need more
-                </p>
+                </div>
 
-                <ul className="mt-6 space-y-3">
-                  {PRO_FEATURES.map((feature, i) => (
-                    <li key={i} className="flex items-center gap-3">
-                      <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-3 h-3 text-green-600" />
-                      </div>
-                      <span className="text-gray-700">{feature.text}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="p-6 lg:p-8">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-500" />
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Pro
+                      </h3>
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+                      {billingPeriod === "monthly"
+                        ? MONTHLY_SAVINGS_PERCENT
+                        : ANNUAL_SAVINGS_PERCENT}
+                      % off
+                    </span>
+                  </div>
 
-                <button
-                  onClick={handleUpgrade}
-                  disabled={isLoading}
-                  className="mt-6 w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-5 h-5" />
-                      Upgrade to Pro
-                    </>
+                  {/* Price */}
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg text-gray-400 line-through">
+                        $
+                        {billingPeriod === "monthly"
+                          ? ORIGINAL_MONTHLY_PRICE
+                          : ORIGINAL_ANNUAL_PRICE}
+                      </span>
+                      <span className="text-4xl font-bold text-gray-900">
+                        $
+                        {billingPeriod === "monthly"
+                          ? MONTHLY_PRICE
+                          : ANNUAL_PRICE}
+                      </span>
+                      <span className="text-gray-500">
+                        /{billingPeriod === "monthly" ? "mo" : "yr"}
+                      </span>
+                    </div>
+                    {billingPeriod === "annual" && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        ${ANNUAL_MONTHLY_EQUIVALENT}/month, billed annually
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Billing Toggle */}
+                  <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg mb-6">
+                    <button
+                      onClick={() => setBillingPeriod("monthly")}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium transition-all cursor-pointer ${
+                        billingPeriod === "monthly"
+                          ? "bg-white shadow-sm text-gray-900"
+                          : "text-gray-500 hover:text-gray-900"
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      onClick={() => setBillingPeriod("annual")}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium transition-all cursor-pointer ${
+                        billingPeriod === "annual"
+                          ? "bg-white shadow-sm text-gray-900"
+                          : "text-gray-500 hover:text-gray-900"
+                      }`}
+                    >
+                      Annual
+                    </button>
+                  </div>
+
+                  {/* CTA */}
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={isLoading}
+                    className="w-full px-4 py-3 bg-indigo-500 text-white rounded-lg font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 mb-4"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5" />
+                        Upgrade to Pro
+                      </>
+                    )}
+                  </button>
+
+                  {error && (
+                    <p className="text-sm text-red-600 text-center mb-4">
+                      {error}
+                    </p>
                   )}
-                </button>
 
-                {error && (
-                  <p className="mt-3 text-sm text-red-600 text-center">
-                    {error}
+                  <p className="text-xs text-gray-500 text-center mb-6">
+                    Cancel anytime · Powered by Stripe
                   </p>
-                )}
+
+                  {/* Features */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <p className="text-sm font-medium text-gray-900 mb-4">
+                      Everything in Free, plus:
+                    </p>
+                    <ul className="space-y-2.5">
+                      {PRO_FEATURES.map((feature) => (
+                        <li
+                          key={feature}
+                          className="flex items-center gap-2.5 text-sm text-gray-700"
+                        >
+                          <Check
+                            className="w-4 h-4 text-indigo-500 flex-shrink-0"
+                            strokeWidth={2.5}
+                          />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
               <p className="text-xs text-gray-500 text-center">
-                Secure payment powered by Stripe. Cancel anytime.
+                Your files never leave your device. All plans include our
+                local-first privacy guarantee.
               </p>
             </div>
           </>

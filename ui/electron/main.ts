@@ -36,7 +36,7 @@ let sleepBlockerId: number | null = null;
 let oauthServer: http.Server | null = null;
 let staticServer: http.Server | null = null;
 
-const PROTOCOL_NAME = "finderai";
+const PROTOCOL_NAME = "docora";
 const OAUTH_PORT = 3002;
 const STATIC_PORT = 5174;
 
