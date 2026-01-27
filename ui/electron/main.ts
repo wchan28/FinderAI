@@ -626,7 +626,54 @@ if (!gotTheLock) {
   });
 }
 
+async function checkAppLocation(): Promise<void> {
+  if (process.platform !== "darwin" || !app.isPackaged) {
+    return;
+  }
+
+  if (app.isInApplicationsFolder()) {
+    return;
+  }
+
+  const response = await dialog.showMessageBox({
+    type: "question",
+    buttons: ["Move to Applications", "Not Now"],
+    defaultId: 0,
+    cancelId: 1,
+    title: "Move to Applications?",
+    message: "Docora works best when installed in your Applications folder.",
+    detail:
+      "This enables automatic updates and ensures full functionality. Would you like to move it now?",
+  });
+
+  if (response.response === 0) {
+    try {
+      const moved = app.moveToApplicationsFolder({
+        conflictHandler: (conflictType) => {
+          if (conflictType === "existsAndRunning") {
+            dialog.showMessageBoxSync({
+              type: "warning",
+              message:
+                "Please close the existing Docora app first, then try again.",
+            });
+            return false;
+          }
+          return true;
+        },
+      });
+
+      if (moved) {
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to move to Applications:", error);
+    }
+  }
+}
+
 app.whenReady().then(async () => {
+  await checkAppLocation();
+
   try {
     await migrateUserData();
   } catch (error) {
