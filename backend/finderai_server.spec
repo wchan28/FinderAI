@@ -135,6 +135,7 @@ hiddenimports += collect_submodules("jaraco")
 datas = []
 datas += collect_data_files("chromadb")
 datas += collect_data_files("pydantic")
+datas += collect_data_files("jaraco")
 
 # Add backend package
 datas += [
@@ -167,9 +168,7 @@ excludes = [
     "notebook",
     "IPython",
     "pytest",
-    "setuptools",
-    "pip",
-    "wheel",
+    # Note: setuptools, pip, wheel removed from excludes - pkg_resources needs setuptools for jaraco.text
     "tkinter",
 ]
 
