@@ -47,7 +47,7 @@ exports.default = async function notarizing(context) {
     console.log('Using keychain profile for notarization');
     await notarize({
       appPath,
-      keychainProfile: 'FinderAI-notarize',
+      keychainProfile: 'Docora-notarize',
     });
   }
 

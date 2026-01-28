@@ -132,6 +132,22 @@ These rules ensure maintainability, safety, and developer velocity.
   - Download artifacts, notarize Mac builds locally, staple, and create release manually
   - This saves significant GitHub Actions minutes since notarization is slow
 
+- **E-8 (MUST)** Apple notarization credentials are stored in keychain profile `Docora-notarize`:
+  - Apple ID: `warrenchan28@gmail.com`
+  - Team ID: `XHL625JL78`
+  - App-specific password: `splo-wauu-wdvp-kkcb`
+  - To recreate keychain profile:
+    ```bash
+    xcrun notarytool store-credentials "Docora-notarize" \
+      --apple-id "warrenchan28@gmail.com" \
+      --team-id "XHL625JL78" \
+      --password "splo-wauu-wdvp-kkcb"
+    ```
+  - To notarize:
+    ```bash
+    xcrun notarytool submit app.zip --keychain-profile "Docora-notarize" --wait
+    ```
+
 ---
 
 ## Writing Functions Best Practices
