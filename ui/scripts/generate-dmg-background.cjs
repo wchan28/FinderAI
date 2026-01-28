@@ -1,8 +1,8 @@
 const sharp = require("sharp");
 const path = require("path");
 
-const WIDTH = 1080;
-const HEIGHT = 760;
+const WIDTH = 1200;
+const HEIGHT = 800;
 
 const ARROW_COLOR = "#4a9eff";
 
@@ -28,16 +28,16 @@ const svg = `
     Drag to Applications
   </text>
 
-  <!-- Arrow (positioned between icons at 2x scale: app at 280, apps folder at 800) -->
-  <g transform="translate(${WIDTH / 2}, 380)">
-    <!-- Arrow line -->
-    <line x1="-80" y1="0" x2="60" y2="0" stroke="${ARROW_COLOR}" stroke-width="6" stroke-linecap="round"/>
+  <!-- Arrow (aligned with icon centers: app at x=160,y=200 and apps at x=440,y=200 in 600x400 window) -->
+  <g transform="translate(${WIDTH / 2}, 400)">
+    <!-- Arrow line spanning between icon edges with gap -->
+    <line x1="-140" y1="0" x2="110" y2="0" stroke="${ARROW_COLOR}" stroke-width="6" stroke-linecap="round"/>
     <!-- Arrow head -->
-    <polygon points="60,-16 95,0 60,16" fill="${ARROW_COLOR}"/>
+    <polygon points="110,-16 145,0 110,16" fill="${ARROW_COLOR}"/>
   </g>
 
   <!-- Subtle bottom text -->
-  <text x="${WIDTH / 2}" y="${HEIGHT - 50}"
+  <text x="${WIDTH / 2}" y="${HEIGHT - 100}"
         font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
         font-size="24"
         fill="#999999"
@@ -50,7 +50,10 @@ const svg = `
 async function generateBackground() {
   const outputPath = path.join(__dirname, "..", "assets", "dmg-background.png");
 
-  await sharp(Buffer.from(svg)).png().toFile(outputPath);
+  await sharp(Buffer.from(svg))
+    .png()
+    .withMetadata({ density: 144 })
+    .toFile(outputPath);
 
   console.log(`DMG background generated at: ${outputPath}`);
 }

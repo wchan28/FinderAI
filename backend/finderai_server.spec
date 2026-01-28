@@ -136,6 +136,8 @@ datas = []
 datas += collect_data_files("chromadb")
 datas += collect_data_files("pydantic")
 datas += collect_data_files("jaraco")
+datas += collect_data_files("certifi")
+datas += collect_data_files("stripe")
 
 # Add backend package
 datas += [

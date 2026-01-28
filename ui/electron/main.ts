@@ -8,6 +8,7 @@ import {
   powerMonitor,
 } from "electron";
 import path from "path";
+import dotenv from "dotenv";
 import http from "http";
 import fs, { createReadStream, statSync } from "fs";
 import { spawn, ChildProcess, execSync } from "child_process";
@@ -39,6 +40,7 @@ let staticServer: http.Server | null = null;
 const PROTOCOL_NAME = "docora";
 const OAUTH_PORT = 3002;
 const STATIC_PORT = 5174;
+
 
 function handleAuthCallback(url: string): void {
   console.log("Auth callback received:", url);
@@ -370,7 +372,13 @@ function startPythonServer(): Promise<void> {
 
       console.log("Spawning bundled server...");
       pythonProcess = spawn(bundledPath, [], {
-        env: { ...process.env, PYTHONUNBUFFERED: "1" },
+        env: {
+          ...process.env,
+          PYTHONUNBUFFERED: "1",
+          STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "",
+          STRIPE_PRICE_ID_MONTHLY: process.env.STRIPE_PRICE_ID_MONTHLY || "",
+          STRIPE_PRICE_ID_ANNUAL: process.env.STRIPE_PRICE_ID_ANNUAL || "",
+        },
       });
     } else {
       const pythonPath = findPythonPath();
@@ -393,7 +401,13 @@ function startPythonServer(): Promise<void> {
         ],
         {
           cwd: path.join(backendPath, ".."),
-          env: { ...process.env, PYTHONUNBUFFERED: "1" },
+          env: {
+            ...process.env,
+            PYTHONUNBUFFERED: "1",
+            STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "",
+            STRIPE_PRICE_ID_MONTHLY: process.env.STRIPE_PRICE_ID_MONTHLY || "",
+            STRIPE_PRICE_ID_ANNUAL: process.env.STRIPE_PRICE_ID_ANNUAL || "",
+          },
         },
       );
     }
@@ -672,6 +686,25 @@ async function checkAppLocation(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  // Load environment variables FIRST, before anything else
+  if (app.isPackaged) {
+    const envPath = path.join(process.resourcesPath, ".env");
+    const result = dotenv.config({ path: envPath });
+    console.log("Loaded .env from:", envPath);
+    console.log(
+      "Dotenv result:",
+      result.error ? result.error.message : "success",
+    );
+    console.log(
+      "STRIPE_SECRET_KEY loaded:",
+      !!process.env.STRIPE_SECRET_KEY,
+    );
+  } else {
+    const devEnvPath = path.join(__dirname, "..", "..", ".env");
+    dotenv.config({ path: devEnvPath });
+    console.log("Loaded .env from:", devEnvPath);
+  }
+
   await checkAppLocation();
 
   try {

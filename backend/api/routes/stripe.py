@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import traceback
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -69,22 +71,39 @@ def _extract_user_info(request: Request) -> tuple[str, str]:
 @router.post("/checkout", response_model=CreateCheckoutResponse)
 async def create_checkout(request: Request, body: CreateCheckoutRequest):
     """Create a Stripe Checkout session for subscription."""
-    user_email, user_id = _extract_user_info(request)
+    try:
+        user_email, user_id = _extract_user_info(request)
 
-    price_id = get_price_id(body.billing_period)
+        price_id = get_price_id(body.billing_period)
 
-    if not price_id:
-        raise HTTPException(status_code=500, detail="Stripe prices not configured")
+        if not price_id:
+            print(
+                f"Stripe config issue - STRIPE_SECRET_KEY: "
+                f"{bool(os.environ.get('STRIPE_SECRET_KEY'))}"
+            )
+            print(
+                f"STRIPE_PRICE_ID_MONTHLY: {os.environ.get('STRIPE_PRICE_ID_MONTHLY')}"
+            )
+            print(
+                f"STRIPE_PRICE_ID_ANNUAL: {os.environ.get('STRIPE_PRICE_ID_ANNUAL')}"
+            )
+            raise HTTPException(status_code=500, detail="Stripe prices not configured")
 
-    checkout_url = create_checkout_session(
-        customer_email=user_email,
-        clerk_user_id=user_id,
-        price_id=price_id,
-        success_url=body.success_url,
-        cancel_url=body.cancel_url,
-    )
+        checkout_url = create_checkout_session(
+            customer_email=user_email,
+            clerk_user_id=user_id,
+            price_id=price_id,
+            success_url=body.success_url,
+            cancel_url=body.cancel_url,
+        )
 
-    return CreateCheckoutResponse(checkout_url=checkout_url)
+        return CreateCheckoutResponse(checkout_url=checkout_url)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Stripe checkout error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/subscription", response_model=SubscriptionStatusResponse)

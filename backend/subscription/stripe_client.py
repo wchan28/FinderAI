@@ -3,22 +3,34 @@
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 from typing import Optional
 
 import stripe
 
-stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
-PRICE_ID_MONTHLY = os.environ.get("STRIPE_PRICE_ID_MONTHLY")
-PRICE_ID_ANNUAL = os.environ.get("STRIPE_PRICE_ID_ANNUAL")
+@lru_cache(maxsize=1)
+def _init_stripe() -> None:
+    """Initialize Stripe API key lazily."""
+    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
+
+def _get_price_ids() -> tuple[Optional[str], Optional[str]]:
+    """Get price IDs lazily."""
+    return (
+        os.environ.get("STRIPE_PRICE_ID_MONTHLY"),
+        os.environ.get("STRIPE_PRICE_ID_ANNUAL"),
+    )
 
 
 def get_price_id(billing_period: str) -> Optional[str]:
     """Get the Stripe price ID for the given billing period."""
+    _init_stripe()
+    monthly, annual = _get_price_ids()
     if billing_period == "monthly":
-        return PRICE_ID_MONTHLY
+        return monthly
     elif billing_period == "annual":
-        return PRICE_ID_ANNUAL
+        return annual
     return None
 
 
@@ -30,6 +42,7 @@ def create_checkout_session(
     cancel_url: str,
 ) -> str:
     """Create a Stripe Checkout session and return the URL."""
+    _init_stripe()
     customers = stripe.Customer.list(email=customer_email, limit=1)
 
     if customers.data:
@@ -56,6 +69,7 @@ def create_checkout_session(
 
 def get_subscription_status(customer_email: str) -> dict:
     """Get subscription status for a customer."""
+    _init_stripe()
     customers = stripe.Customer.list(email=customer_email, limit=1)
 
     if not customers.data:
@@ -83,6 +97,7 @@ def get_subscription_status(customer_email: str) -> dict:
 
 def has_active_subscription(customer_email: str) -> bool:
     """Check if customer has an active Stripe subscription."""
+    _init_stripe()
     if not stripe.api_key:
         return False
 
@@ -95,6 +110,7 @@ def has_active_subscription(customer_email: str) -> bool:
 
 def create_customer_portal_session(customer_id: str, return_url: str) -> str:
     """Create a customer portal session for managing subscription."""
+    _init_stripe()
     session = stripe.billing_portal.Session.create(
         customer=customer_id,
         return_url=return_url,
