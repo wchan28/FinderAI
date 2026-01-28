@@ -119,6 +119,19 @@ These rules ensure maintainability, safety, and developer velocity.
   - electron-builder's `artifactName` only affects output filenames (DMG, ZIP), not the `.app` inside
   - The app inside DMG is always `Docora.app` regardless of architecture
 
+- **E-7 (MUST)** For releases, use the **"Build All Platforms (with DMG)"** workflow (`build-dmg.yml`), NOT "Build, Sign, Notarize & Release" (`unified-release.yml`):
+  ```bash
+  # ✅ Good - builds artifacts only, notarize locally to save CI minutes
+  gh workflow run "build-dmg.yml" --ref main -f version_tag=v1.0.16
+  # Then download artifacts and notarize locally
+
+  # ❌ Bad - wastes GitHub Actions minutes on notarization
+  gh workflow run "unified-release.yml" --ref main -f version_tag=v1.0.16
+  ```
+  - `build-dmg.yml` builds all platforms (mac-arm64, mac-x64, windows) without notarization
+  - Download artifacts, notarize Mac builds locally, staple, and create release manually
+  - This saves significant GitHub Actions minutes since notarization is slow
+
 ---
 
 ## Writing Functions Best Practices
