@@ -14,6 +14,7 @@ import type { StatusResponse, ConversationMessage } from "./api/client";
 import { useChat } from "./hooks/useChat";
 import type { Message } from "./hooks/useChat";
 import { useChatHistory } from "./hooks/useChatHistory";
+import type { ConversationId } from "./types/chat";
 import { useSubscription } from "./providers/SubscriptionProvider";
 import { CLERK_ENABLED } from "./lib/clerk";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -43,6 +44,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [indexStatus, setIndexStatus] = useState<StatusResponse | null>(null);
+  const [newChatDraft, setNewChatDraft] = useState("");
 
   const { refresh: refreshSubscription } = useSubscription();
 
@@ -62,8 +64,8 @@ function App() {
   activeConversationIdRef.current = activeConversationId;
 
   const handleMessagesChange = useCallback(
-    (messages: Message[]) => {
-      const id = activeConversationIdRef.current;
+    (messages: Message[], forConversationId: ConversationId | null) => {
+      const id = forConversationId ?? activeConversationIdRef.current;
       if (id) {
         updateMessages(id, messages);
       }
@@ -77,11 +79,24 @@ function App() {
     onMessagesChange: handleMessagesChange,
   });
 
+  const handleInputChange = useCallback(
+    (value: string) => {
+      if (!activeConversationId) {
+        setNewChatDraft(value);
+      }
+    },
+    [activeConversationId],
+  );
+
+  const currentInputValue = activeConversationId ? undefined : newChatDraft;
+
   const handleSendMessage = useCallback(
     async (content: string) => {
-      if (!activeConversationIdRef.current) {
-        const newId = createConversation();
-        activeConversationIdRef.current = newId;
+      let convId = activeConversationIdRef.current;
+      if (!convId) {
+        setNewChatDraft("");
+        convId = createConversation();
+        activeConversationIdRef.current = convId;
       }
       const history: ConversationMessage[] = messages
         .filter((m) => !m.isStreaming)
@@ -97,7 +112,7 @@ function App() {
         (s) => s.file_path,
       );
 
-      await sendMessage(content, history, previousSources);
+      await sendMessage(content, convId, history, previousSources);
     },
     [createConversation, sendMessage, messages],
   );
@@ -289,6 +304,8 @@ function App() {
                 onStopGeneration={stopGeneration}
                 hasIndexedFiles={(indexStatus?.indexed_files ?? 0) > 0}
                 onOpenSettings={() => setIsSettingsOpen(true)}
+                inputValue={currentInputValue}
+                onInputChange={handleInputChange}
               />
             </div>
           </div>

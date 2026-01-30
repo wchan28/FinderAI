@@ -9,6 +9,8 @@ type ChatContainerProps = {
   onStopGeneration: () => void;
   hasIndexedFiles: boolean;
   onOpenSettings: () => void;
+  inputValue?: string;
+  onInputChange?: (value: string) => void;
 };
 
 export function ChatContainer({
@@ -18,6 +20,8 @@ export function ChatContainer({
   onStopGeneration,
   hasIndexedFiles,
   onOpenSettings,
+  inputValue,
+  onInputChange,
 }: ChatContainerProps) {
   const isLandingState = messages.length === 0 && hasIndexedFiles;
 
@@ -37,6 +41,8 @@ export function ChatContainer({
               placeholder="Ask a question about your files..."
               variant="centered"
               autoFocus
+              value={inputValue}
+              onChange={onInputChange}
             />
           ) : undefined
         }
@@ -52,6 +58,8 @@ export function ChatContainer({
               ? "Ask a question about your files..."
               : "Index your files first to start asking questions..."
           }
+          value={inputValue}
+          onChange={onInputChange}
         />
       )}
     </div>

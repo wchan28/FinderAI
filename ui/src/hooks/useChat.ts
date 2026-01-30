@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { streamChat } from "../api/client";
 import type { Source, ConversationMessage, HiddenResults } from "../api/client";
 import type { ThinkingStatus } from "../components/Chat/ThinkingIndicator";
+import type { ConversationId } from "../types/chat";
 import { CLERK_ENABLED } from "../lib/clerk";
 
 export interface Message {
@@ -18,7 +19,10 @@ export interface Message {
 type UseChatOptions = {
   conversationId?: string | null;
   initialMessages?: Message[];
-  onMessagesChange?: (messages: Message[]) => void;
+  onMessagesChange?: (
+    messages: Message[],
+    forConversationId: ConversationId | null,
+  ) => void;
 };
 
 function useChatInternal(
@@ -32,28 +36,63 @@ function useChatInternal(
   const prevConversationIdRef = useRef(conversationId);
   const isInternalUpdateRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const streamingStateRef = useRef<{
+    conversationId: ConversationId;
+    messages: Message[];
+  } | null>(null);
   onMessagesChangeRef.current = onMessagesChange;
 
   useEffect(() => {
     if (prevConversationIdRef.current !== conversationId) {
       prevConversationIdRef.current = conversationId;
-      if (!isLoading) {
+      if (
+        streamingStateRef.current &&
+        streamingStateRef.current.conversationId === conversationId
+      ) {
+        setMessages(streamingStateRef.current.messages);
+      } else {
         setMessages(initialMessages ?? []);
       }
     }
-  }, [conversationId, initialMessages, isLoading]);
+  }, [conversationId, initialMessages]);
 
   useEffect(() => {
     if (isInternalUpdateRef.current) {
-      onMessagesChangeRef.current?.(messages);
+      onMessagesChangeRef.current?.(
+        messages,
+        streamingStateRef.current?.conversationId ?? null,
+      );
       isInternalUpdateRef.current = false;
     }
   }, [messages]);
 
   const setMessagesWithCallback = useCallback(
     (updater: Message[] | ((prev: Message[]) => Message[])) => {
-      isInternalUpdateRef.current = true;
-      setMessages(updater);
+      if (streamingStateRef.current) {
+        const streamingMessages = streamingStateRef.current.messages;
+        const updated =
+          typeof updater === "function" ? updater(streamingMessages) : updater;
+        streamingStateRef.current.messages = updated;
+
+        const isViewingStreamingConv =
+          streamingStateRef.current.conversationId ===
+          prevConversationIdRef.current;
+
+        if (isViewingStreamingConv) {
+          isInternalUpdateRef.current = true;
+          setMessages(updated);
+        } else {
+          onMessagesChangeRef.current?.(
+            updated,
+            streamingStateRef.current.conversationId,
+          );
+        }
+      } else {
+        isInternalUpdateRef.current = true;
+        setMessages((prev) => {
+          return typeof updater === "function" ? updater(prev) : updater;
+        });
+      }
     },
     [],
   );
@@ -75,12 +114,14 @@ function useChatInternal(
         }
         return updated;
       });
+      streamingStateRef.current = null;
     }
   }, [setMessagesWithCallback]);
 
   const sendMessage = useCallback(
     async (
       content: string,
+      forConversationId: ConversationId,
       conversationHistory?: ConversationMessage[],
       previousSources?: string[],
     ) => {
@@ -96,6 +137,11 @@ function useChatInternal(
         content: "",
         isStreaming: true,
         status: "searching",
+      };
+
+      streamingStateRef.current = {
+        conversationId: forConversationId,
+        messages: [],
       };
 
       setMessagesWithCallback((prev) => [
@@ -130,6 +176,7 @@ function useChatInternal(
           });
           setIsLoading(false);
           abortControllerRef.current = null;
+          streamingStateRef.current = null;
         }
       }, 45000);
 
@@ -183,6 +230,7 @@ function useChatInternal(
               });
               setIsLoading(false);
               abortControllerRef.current = null;
+              streamingStateRef.current = null;
             },
             onError: () => {
               clearTimeout(timeoutId);
@@ -198,6 +246,7 @@ function useChatInternal(
               });
               setIsLoading(false);
               abortControllerRef.current = null;
+              streamingStateRef.current = null;
             },
           },
           controller.signal,
@@ -222,6 +271,7 @@ function useChatInternal(
         });
         setIsLoading(false);
         abortControllerRef.current = null;
+        streamingStateRef.current = null;
       }
     },
     [setMessagesWithCallback, getToken],

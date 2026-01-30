@@ -9,6 +9,8 @@ interface InputAreaProps {
   placeholder?: string;
   variant?: "default" | "centered";
   autoFocus?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
 export function InputArea({
@@ -19,10 +21,27 @@ export function InputArea({
   placeholder = "Ask a question about your files...",
   variant = "default",
   autoFocus = false,
+  value,
+  onChange,
 }: InputAreaProps) {
-  const [input, setInput] = useState("");
+  const [internalInput, setInternalInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const maxHeight = variant === "centered" ? 288 : 200;
+
+  const isControlled = value !== undefined;
+  const input = isControlled ? value : internalInput;
+
+  const handleChange = useCallback(
+    (newValue: string) => {
+      if (onChange) {
+        onChange(newValue);
+      }
+      if (!isControlled) {
+        setInternalInput(newValue);
+      }
+    },
+    [onChange, isControlled],
+  );
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -36,12 +55,12 @@ export function InputArea({
     const trimmed = input.trim();
     if (trimmed && !disabled) {
       onSend(trimmed);
-      setInput("");
+      handleChange("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
     }
-  }, [input, disabled, onSend]);
+  }, [input, disabled, onSend, handleChange]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -55,7 +74,7 @@ export function InputArea({
       <textarea
         ref={textareaRef}
         value={input}
-        onChange={(e) => setInput(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="flex-1 bg-transparent resize-none outline-none text-gray-900 placeholder-gray-400 overflow-y-auto leading-6 py-1.5"
