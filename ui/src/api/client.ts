@@ -1,5 +1,51 @@
 const API_BASE = "http://127.0.0.1:8000";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as
+  | string
+  | undefined;
+
+async function callSupabaseFunction<T>(
+  functionName: string,
+  options: {
+    method?: "GET" | "POST";
+    body?: Record<string, unknown>;
+    authToken?: string;
+    userEmail?: string;
+  } = {},
+): Promise<T> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error("Supabase not configured");
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    apikey: SUPABASE_ANON_KEY,
+  };
+
+  if (options.authToken) {
+    headers["Authorization"] = `Bearer ${options.authToken}`;
+  }
+  if (options.userEmail) {
+    headers["X-User-Email"] = options.userEmail;
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+    method: options.method || "POST",
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(
+      error.error || error.detail || `Failed to call ${functionName}`,
+    );
+  }
+
+  return res.json();
+}
+
 export interface Source {
   file_name: string;
   file_path: string;
@@ -512,32 +558,19 @@ export async function createCheckoutSession(
   authToken?: string,
   userEmail?: string,
 ): Promise<string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (authToken) {
-    headers["Authorization"] = `Bearer ${authToken}`;
-  }
-  if (userEmail) {
-    headers["X-User-Email"] = userEmail;
-  }
-
-  const res = await fetch(`${API_BASE}/api/stripe/checkout`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      billing_period: billingPeriod,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    }),
-  });
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.detail || "Failed to create checkout session");
-  }
-
-  const data = await res.json();
+  const data = await callSupabaseFunction<{ checkout_url: string }>(
+    "stripe-checkout",
+    {
+      method: "POST",
+      body: {
+        billing_period: billingPeriod,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      },
+      authToken,
+      userEmail,
+    },
+  );
   return data.checkout_url;
 }
 
@@ -545,46 +578,25 @@ export async function getStripeSubscription(
   authToken?: string,
   userEmail?: string,
 ): Promise<StripeSubscriptionStatus> {
-  const headers: Record<string, string> = {};
-  if (authToken) {
-    headers["Authorization"] = `Bearer ${authToken}`;
-  }
-  if (userEmail) {
-    headers["X-User-Email"] = userEmail;
-  }
-
-  const res = await fetch(`${API_BASE}/api/stripe/subscription`, { headers });
-  if (!res.ok) {
-    throw new Error("Failed to get Stripe subscription status");
-  }
-
-  return res.json();
+  return callSupabaseFunction<StripeSubscriptionStatus>("stripe-subscription", {
+    method: "POST",
+    authToken,
+    userEmail,
+  });
 }
 
 export async function createCustomerPortalSession(
   authToken?: string,
   userEmail?: string,
 ): Promise<string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (authToken) {
-    headers["Authorization"] = `Bearer ${authToken}`;
-  }
-  if (userEmail) {
-    headers["X-User-Email"] = userEmail;
-  }
-
-  const res = await fetch(`${API_BASE}/api/stripe/portal`, {
-    method: "POST",
-    headers,
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to create portal session");
-  }
-
-  const data = await res.json();
+  const data = await callSupabaseFunction<{ portal_url: string }>(
+    "stripe-portal",
+    {
+      method: "POST",
+      authToken,
+      userEmail,
+    },
+  );
   return data.portal_url;
 }
 

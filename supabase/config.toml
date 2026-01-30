@@ -1,0 +1,13 @@
+# Supabase configuration for Docora
+
+[api]
+enabled = true
+
+[functions.stripe-checkout]
+verify_jwt = false
+
+[functions.stripe-subscription]
+verify_jwt = false
+
+[functions.stripe-portal]
+verify_jwt = false
