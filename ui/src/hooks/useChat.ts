@@ -40,6 +40,8 @@ function useChatInternal(
     conversationId: ConversationId;
     messages: Message[];
   } | null>(null);
+  const messagesRef = useRef<Message[]>(messages);
+  messagesRef.current = messages;
   onMessagesChangeRef.current = onMessagesChange;
 
   useEffect(() => {
@@ -141,7 +143,7 @@ function useChatInternal(
 
       streamingStateRef.current = {
         conversationId: forConversationId,
-        messages: [...messages],
+        messages: [...messagesRef.current],
       };
 
       setMessagesWithCallback((prev) => [
