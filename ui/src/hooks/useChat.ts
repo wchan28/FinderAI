@@ -141,7 +141,7 @@ function useChatInternal(
 
       streamingStateRef.current = {
         conversationId: forConversationId,
-        messages: [],
+        messages: [...messages],
       };
 
       setMessagesWithCallback((prev) => [
