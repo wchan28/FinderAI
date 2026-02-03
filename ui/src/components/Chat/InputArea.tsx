@@ -51,6 +51,21 @@ export function InputArea({
     }
   }, [input, maxHeight]);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (
+      isControlled &&
+      value &&
+      textarea &&
+      document.activeElement !== textarea
+    ) {
+      const len = value.length;
+      requestAnimationFrame(() => {
+        textarea.setSelectionRange(len, len);
+      });
+    }
+  }, [isControlled, value]);
+
   const handleSend = useCallback(() => {
     const trimmed = input.trim();
     if (trimmed && !disabled) {
