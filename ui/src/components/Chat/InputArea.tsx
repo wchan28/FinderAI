@@ -26,6 +26,7 @@ export function InputArea({
 }: InputAreaProps) {
   const [internalInput, setInternalInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isInternalChangeRef = useRef(false);
   const maxHeight = variant === "centered" ? 288 : 200;
 
   const isControlled = value !== undefined;
@@ -33,6 +34,7 @@ export function InputArea({
 
   const handleChange = useCallback(
     (newValue: string) => {
+      isInternalChangeRef.current = true;
       if (onChange) {
         onChange(newValue);
       }
@@ -53,17 +55,13 @@ export function InputArea({
 
   useEffect(() => {
     const textarea = textareaRef.current;
-    if (
-      isControlled &&
-      value &&
-      textarea &&
-      document.activeElement !== textarea
-    ) {
+    if (isControlled && value && textarea && !isInternalChangeRef.current) {
       const len = value.length;
       requestAnimationFrame(() => {
         textarea.setSelectionRange(len, len);
       });
     }
+    isInternalChangeRef.current = false;
   }, [isControlled, value]);
 
   const handleSend = useCallback(() => {
